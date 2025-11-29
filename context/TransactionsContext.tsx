@@ -65,7 +65,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
                 }
             }
 
-            console.log(`📊 Loaded total ${allData.length} transactions from Supabase (across ${page + 1} pages)`);
+            console.log(`📊 Loaded ${allData.length} transactions from database`);
 
             // Map Supabase rows to Transaction type
             const mappedTransactions: Transaction[] = allData.map(row => ({

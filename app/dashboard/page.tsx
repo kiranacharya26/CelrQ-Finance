@@ -91,7 +91,6 @@ function DashboardContent() {
     // Extract unique months
     const months = useMemo(() => {
         if (!dateKey) {
-            console.log('⚠️ No date key found in transactions');
             return [];
         }
 
@@ -124,14 +123,6 @@ function DashboardContent() {
                 }
             }
         });
-
-        console.log(`📅 Month extraction: ${parsedCount} dates parsed, ${failedCount} failed`);
-        console.log(`📅 Found ${uniqueMonths.size} unique months`);
-        console.log('📅 Sample parsed dates:', parsedSamples);
-        if (failedSamples.length > 0) {
-            console.log('❌ Sample failed dates:', failedSamples);
-        }
-        console.log('📅 All unique months found:', Array.from(uniqueMonths.keys()).sort());
 
         // Sort chronologically using the actual Date objects (Descending: Newest First)
         return Array.from(uniqueMonths.entries())

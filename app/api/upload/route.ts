@@ -132,10 +132,9 @@ export async function POST(request: Request) {
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
-        console.log('Received file:', file.name, file.type, file.size);
+        console.log(`📤 Upload started: ${file.name} (${(file.size / 1024).toFixed(2)}KB)`);
 
         // 1. Fetch DB Rules (The Memory Bank)
-        // We try to fetch rules for this user. If table doesn't exist or error, we proceed gracefully.
         let dbKeywords: Record<string, string[]> = {};
         try {
             const { data: dbRules, error } = await supabase
@@ -148,10 +147,10 @@ export async function POST(request: Request) {
                     if (!dbKeywords[r.category]) dbKeywords[r.category] = [];
                     dbKeywords[r.category].push(r.keyword);
                 });
-                console.log(`🧠 Memory Bank: Loaded ${dbRules.length} rules from database.`);
+                console.log(`🧠 Loaded ${dbRules.length} merchant rules from Memory Bank`);
             }
         } catch (err) {
-            console.warn('Failed to load merchant rules from DB (table might be missing):', err);
+            // Silent fail - table might not exist yet
         }
 
         const learnedKeywordsStr = formData.get('learnedKeywords') as string;
@@ -160,7 +159,6 @@ export async function POST(request: Request) {
         // Merge DB keywords into learnedKeywords
         Object.entries(dbKeywords).forEach(([cat, keys]) => {
             if (!learnedKeywords[cat]) learnedKeywords[cat] = [];
-            // Add unique
             keys.forEach(k => {
                 if (!learnedKeywords[cat].includes(k)) learnedKeywords[cat].push(k);
             });
@@ -182,19 +180,18 @@ export async function POST(request: Request) {
             if (newRulesToInsert.length > 0) {
                 try {
                     const { error } = await supabase.from('merchant_rules').upsert(newRulesToInsert, { onConflict: 'user_email, keyword' });
-                    if (error) console.error('Error saving new rules to DB:', error);
-                    else console.log(`🧠 Memory Bank: Saved ${newRulesToInsert.length} new rules to database.`);
+                    if (!error) console.log(`🧠 Saved ${newRulesToInsert.length} new merchant rules`);
                 } catch (err) {
-                    console.error('Error saving rules:', err);
+                    // Silent fail
                 }
             }
         };
 
         // ---------- PDF ----------
         if (file.type === 'application/pdf') {
-            console.time('parsePDF');
+            console.time('⏱️  PDF parsing');
             const rawText = await parsePDF(buffer);
-            console.timeEnd('parsePDF');
+            console.timeEnd('⏱️  PDF parsing');
 
             const pdfTransactions = [{
                 description: rawText,
@@ -202,9 +199,9 @@ export async function POST(request: Request) {
                 amount: 0,
             }];
 
-            console.time('categorize');
+            console.time('🤖 AI categorization');
             const { results: transactions, newlyLearnedKeywords } = await categorizeTransactions(pdfTransactions, learnedKeywords);
-            console.timeEnd('categorize');
+            console.timeEnd('🤖 AI categorization');
 
             await saveNewRules(newlyLearnedKeywords);
             await storeTransactions(transactions, userEmail, bankName, file.name);
@@ -214,13 +211,13 @@ export async function POST(request: Request) {
         // ---------- CSV ----------
         if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
             const text = buffer.toString('utf-8');
-            console.time('parseCSV');
+            console.time('⏱️  CSV parsing');
             const rawTransactions = await parseCSV(text);
-            console.timeEnd('parseCSV');
+            console.timeEnd('⏱️  CSV parsing');
 
-            console.time('categorize');
+            console.time('🤖 AI categorization');
             const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(rawTransactions, learnedKeywords);
-            console.timeEnd('categorize');
+            console.timeEnd('🤖 AI categorization');
 
             await saveNewRules(newlyLearnedKeywords);
 
@@ -241,13 +238,13 @@ export async function POST(request: Request) {
             file.name.endsWith('.xls') ||
             file.name.endsWith('.xlsx')
         ) {
-            console.time('parseExcel');
+            console.time('⏱️  Excel parsing');
             const rawTransactions = await parseExcel(buffer);
-            console.timeEnd('parseExcel');
+            console.timeEnd('⏱️  Excel parsing');
 
-            console.time('categorize');
+            console.time('🤖 AI categorization');
             const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(rawTransactions, learnedKeywords);
-            console.timeEnd('categorize');
+            console.timeEnd('🤖 AI categorization');
 
             await saveNewRules(newlyLearnedKeywords);
 

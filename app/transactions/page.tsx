@@ -71,9 +71,7 @@ function TransactionsContent() {
 
     // Handler for category changes - refresh data but keep filters
     const handleCategoryChange = () => {
-        console.log('Category changed - refreshing data');
-        refresh(); // Reload transactions from storage
-        // Note: We don't clear filters here - let users manually clear search if needed
+        refresh();
     };
 
     const availableTags = useMemo(() => {
@@ -100,12 +98,6 @@ function TransactionsContent() {
             const parsed = parseFloat(String(val).replace(/[^0-9.-]+/g, ''));
             return isNaN(parsed) ? 0 : parsed;
         };
-
-        // Debug: Log first transaction to see field names
-        if (filteredTransactions.length > 0) {
-            console.log('Sample transaction:', filteredTransactions[0]);
-            console.log('Transaction keys:', Object.keys(filteredTransactions[0]));
-        }
 
         filteredTransactions.forEach(t => {
             // Try different field names for deposits/income (including variations with spaces and periods)
@@ -137,8 +129,6 @@ function TransactionsContent() {
                 }
             }
         });
-
-        console.log('Calculated totals:', { income, expenses, count: filteredTransactions.length });
 
         return {
             totalIncome: income,

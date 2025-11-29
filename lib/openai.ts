@@ -143,16 +143,14 @@ export async function categorizeTransactions(rawInput: string | any[], learnedKe
     };
 
     // 3. Apply Local Categorization First
-    console.time('localCategorization');
     const results = rawArray.map(t => {
         const desc = findDescription(t);
         return {
             ...t,
-            _description: desc, // Store for easy access
+            _description: desc,
             category: mapCategory(desc)
         };
     });
-    console.timeEnd('localCategorization');
 
     // 4. Identify "Other" transactions
     const uncategorizedIndices = results
@@ -164,15 +162,11 @@ export async function categorizeTransactions(rawInput: string | any[], learnedKe
     }
 
     // 5. Deduplicate Descriptions for OpenAI
-    // Only send UNIQUE descriptions to save tokens and time
     const uniqueDescriptions = new Set<string>();
     const descriptionToIndices: Record<string, number[]> = {};
 
     uncategorizedIndices.forEach(index => {
         const desc = results[index]._description || 'Unknown';
-        // Simple normalization to group similar transactions
-        // e.g., "UPI-123" and "UPI-456" might be different, but we send the full string.
-        // For better dedupe, we could strip numbers, but let's stick to exact string for safety first.
         if (!uniqueDescriptions.has(desc)) {
             uniqueDescriptions.add(desc);
         }
@@ -183,9 +177,7 @@ export async function categorizeTransactions(rawInput: string | any[], learnedKe
     });
 
     const uniqueDescArray = Array.from(uniqueDescriptions);
-    console.log(`Optimized: Sending ${uniqueDescArray.length} unique descriptions (from ${uncategorizedIndices.length} transactions) to OpenAI...`);
-    console.log('Sample uncategorized descriptions:', uniqueDescArray.slice(0, 15));
-    console.log('Total categorized locally:', results.filter(r => r.category !== 'Other').length);
+    console.log(`🤖 Sending ${uniqueDescArray.length} unique transactions to AI (${uncategorizedIndices.length} total uncategorized, ${results.filter(r => r.category !== 'Other').length} categorized locally)`);
 
     // Prepare payload (list of descriptions only)
     const payloadObj = uniqueDescArray.map((desc, i) => ({ id: i, description: desc }));
@@ -250,14 +242,12 @@ ${payload}
 Remember: Read EVERY word in each description. The merchant name is hiding somewhere in there!`;
 
     try {
-        console.time('openaiCall');
         const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.3,
             response_format: { type: "json_object" }
         });
-        console.timeEnd('openaiCall');
 
         const content = response.choices[0].message.content;
         if (!content) throw new Error("Empty response");
