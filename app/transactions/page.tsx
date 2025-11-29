@@ -28,7 +28,7 @@ const TransactionTable = dynamic(() => import('@/components/TransactionTable').t
     ssr: false,
 });
 
-export default function TransactionsPage() {
+function TransactionsContent() {
     const { userEmail, isAuthenticated } = useAuth();
     const [selectedBank, setSelectedBank] = useState<string>('all');
     const [dateRange, setLocalDateRange] = useState<DateRange>({ from: null, to: null });
@@ -227,5 +227,13 @@ export default function TransactionsPage() {
                 />
             </Suspense>
         </div>
+    );
+}
+
+export default function TransactionsPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading transactions...</div>}>
+            <TransactionsContent />
+        </Suspense>
     );
 }

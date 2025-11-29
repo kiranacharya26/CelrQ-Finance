@@ -40,7 +40,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 
-export default function DashboardPage() {
+function DashboardContent() {
     const { userEmail, isAuthenticated } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
@@ -291,5 +291,13 @@ export default function DashboardPage() {
             {/* Transaction Table Section Removed */}
 
         </div>
+    );
+}
+
+export default function DashboardPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading dashboard...</div>}>
+            <DashboardContent />
+        </Suspense>
     );
 }

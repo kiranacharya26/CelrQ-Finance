@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { SessionProvider } from "@/components/SessionProvider";
@@ -92,7 +93,9 @@ export default function RootLayout({
         <SessionProvider>
           <TransactionsProvider>
             <div className="relative flex min-h-screen flex-col">
-              <Navbar />
+              <Suspense fallback={<div className="h-16 border-b bg-background" />}>
+                <Navbar />
+              </Suspense>
               <main id="main-content" className="flex-1 overflow-x-hidden">
                 {children}
               </main>
