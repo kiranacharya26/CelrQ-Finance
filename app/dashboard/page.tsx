@@ -36,6 +36,7 @@ const SpendingForecast = dynamic(() => import('@/components/SpendingForecast').t
 
 import { BudgetManager } from '@/components/BudgetManager';
 import { SubscriptionTracker } from '@/components/SubscriptionTracker';
+import { BankConnections } from '@/components/BankConnections';
 import { DashboardHero } from '@/components/DashboardHero';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -269,6 +270,7 @@ function DashboardContent() {
 
                 {/* Right Column */}
                 <div className="lg:col-span-3 space-y-4 sm:space-y-6 min-w-0">
+                    <BankConnections />
                     <Suspense fallback={<div className="h-[300px] bg-muted animate-pulse rounded"></div>}>
                         <AIInsights transactions={filteredTransactions} />
                     </Suspense>
