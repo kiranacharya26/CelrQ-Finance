@@ -134,8 +134,61 @@ export async function POST(request: Request) {
         const buffer = Buffer.from(await file.arrayBuffer());
         console.log('Received file:', file.name, file.type, file.size);
 
+        // 1. Fetch DB Rules (The Memory Bank)
+        // We try to fetch rules for this user. If table doesn't exist or error, we proceed gracefully.
+        let dbKeywords: Record<string, string[]> = {};
+        try {
+            const { data: dbRules, error } = await supabase
+                .from('merchant_rules')
+                .select('keyword, category')
+                .eq('user_email', userEmail);
+
+            if (!error && dbRules) {
+                dbRules.forEach(r => {
+                    if (!dbKeywords[r.category]) dbKeywords[r.category] = [];
+                    dbKeywords[r.category].push(r.keyword);
+                });
+                console.log(`🧠 Memory Bank: Loaded ${dbRules.length} rules from database.`);
+            }
+        } catch (err) {
+            console.warn('Failed to load merchant rules from DB (table might be missing):', err);
+        }
+
         const learnedKeywordsStr = formData.get('learnedKeywords') as string;
         const learnedKeywords = learnedKeywordsStr ? JSON.parse(learnedKeywordsStr) : {};
+
+        // Merge DB keywords into learnedKeywords
+        Object.entries(dbKeywords).forEach(([cat, keys]) => {
+            if (!learnedKeywords[cat]) learnedKeywords[cat] = [];
+            // Add unique
+            keys.forEach(k => {
+                if (!learnedKeywords[cat].includes(k)) learnedKeywords[cat].push(k);
+            });
+        });
+
+        // Helper to save new rules back to DB
+        const saveNewRules = async (newlyLearned: Record<string, string[]>) => {
+            const newRulesToInsert: any[] = [];
+            Object.entries(newlyLearned).forEach(([cat, keys]) => {
+                (keys as string[]).forEach(k => {
+                    newRulesToInsert.push({
+                        user_email: userEmail,
+                        keyword: k,
+                        category: cat
+                    });
+                });
+            });
+
+            if (newRulesToInsert.length > 0) {
+                try {
+                    const { error } = await supabase.from('merchant_rules').upsert(newRulesToInsert, { onConflict: 'user_email, keyword' });
+                    if (error) console.error('Error saving new rules to DB:', error);
+                    else console.log(`🧠 Memory Bank: Saved ${newRulesToInsert.length} new rules to database.`);
+                } catch (err) {
+                    console.error('Error saving rules:', err);
+                }
+            }
+        };
 
         // ---------- PDF ----------
         if (file.type === 'application/pdf') {
@@ -153,6 +206,7 @@ export async function POST(request: Request) {
             const { results: transactions, newlyLearnedKeywords } = await categorizeTransactions(pdfTransactions, learnedKeywords);
             console.timeEnd('categorize');
 
+            await saveNewRules(newlyLearnedKeywords);
             await storeTransactions(transactions, userEmail, bankName, file.name);
             return NextResponse.json({ transactions, newlyLearnedKeywords });
         }
@@ -167,6 +221,8 @@ export async function POST(request: Request) {
             console.time('categorize');
             const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(rawTransactions, learnedKeywords);
             console.timeEnd('categorize');
+
+            await saveNewRules(newlyLearnedKeywords);
 
             const transactions = rawTransactions.map((t, i) => ({
                 ...t,
@@ -192,6 +248,8 @@ export async function POST(request: Request) {
             console.time('categorize');
             const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(rawTransactions, learnedKeywords);
             console.timeEnd('categorize');
+
+            await saveNewRules(newlyLearnedKeywords);
 
             const transactions = rawTransactions.map((t, i) => ({
                 ...t,
