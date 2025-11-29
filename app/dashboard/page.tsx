@@ -29,6 +29,11 @@ const GoalTracker = dynamic(() => import('@/components/GoalTracker').then(mod =>
     ssr: false,
 });
 
+const SpendingForecast = dynamic(() => import('@/components/SpendingForecast').then(mod => ({ default: mod.SpendingForecast })), {
+    loading: () => <div className="h-[400px] bg-muted animate-pulse rounded"></div>,
+    ssr: false,
+});
+
 import { BudgetManager } from '@/components/BudgetManager';
 import { SubscriptionTracker } from '@/components/SubscriptionTracker';
 import { DashboardHero } from '@/components/DashboardHero';
@@ -255,6 +260,10 @@ function DashboardContent() {
 
                     <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
                         <SubscriptionTracker transactions={transactions} />
+                    </Suspense>
+
+                    <Suspense fallback={<div className="h-[400px] bg-muted animate-pulse rounded"></div>}>
+                        <SpendingForecast transactions={transactions} />
                     </Suspense>
                 </div>
 

@@ -1,0 +1,185 @@
+'use client';
+
+import { useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { Transaction } from '@/types';
+import { generateForecast, ForecastAlert } from '@/lib/forecasting';
+
+interface SpendingForecastProps {
+    transactions: Transaction[];
+}
+
+export function SpendingForecast({ transactions }: SpendingForecastProps) {
+    const forecast = useMemo(() => generateForecast(transactions), [transactions]);
+
+    if (forecast.categoryForecasts.length === 0) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>📊 Spending Forecast</CardTitle>
+                    <CardDescription>Not enough data yet. Upload more statements to see predictions.</CardDescription>
+                </CardHeader>
+            </Card>
+        );
+    }
+
+    const getAlertIcon = (type: ForecastAlert['type']) => {
+        switch (type) {
+            case 'overspend': return <AlertTriangle className="h-4 w-4" />;
+            case 'warning': return <Info className="h-4 w-4" />;
+            case 'savings': return <CheckCircle className="h-4 w-4" />;
+            default: return <Info className="h-4 w-4" />;
+        }
+    };
+
+    const getAlertColor = (severity: ForecastAlert['severity']) => {
+        switch (severity) {
+            case 'high': return 'bg-red-50 border-red-200 text-red-800';
+            case 'medium': return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+            case 'low': return 'bg-green-50 border-green-200 text-green-800';
+        }
+    };
+
+    const getTrendIcon = (trend: 'increasing' | 'decreasing' | 'stable') => {
+        switch (trend) {
+            case 'increasing': return <TrendingUp className="h-4 w-4 text-red-500" />;
+            case 'decreasing': return <TrendingDown className="h-4 w-4 text-green-500" />;
+            case 'stable': return <Minus className="h-4 w-4 text-gray-500" />;
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Alerts Section */}
+            {forecast.alerts.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-orange-500" />
+                            Smart Alerts
+                        </CardTitle>
+                        <CardDescription>AI-powered insights about your spending</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {forecast.alerts.slice(0, 5).map((alert, i) => (
+                            <div
+                                key={i}
+                                className={`flex items-start gap-3 p-3 rounded-lg border ${getAlertColor(alert.severity)}`}
+                            >
+                                {getAlertIcon(alert.type)}
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium">{alert.message}</p>
+                                    <p className="text-xs mt-1 opacity-75">{alert.category}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Next Month Prediction */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>📈 Next Month Prediction</CardTitle>
+                    <CardDescription>Based on your spending patterns</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                            <p className="text-sm text-blue-600 font-medium">Current Month</p>
+                            <p className="text-3xl font-bold text-blue-900 mt-1">
+                                ₹{forecast.totalCurrent.toLocaleString('en-IN')}
+                            </p>
+                        </div>
+                        <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
+                            <p className="text-sm text-purple-600 font-medium">Predicted Next Month</p>
+                            <p className="text-3xl font-bold text-purple-900 mt-1">
+                                ₹{forecast.totalPredicted.toLocaleString('en-IN')}
+                            </p>
+                            {forecast.totalPredicted > forecast.totalCurrent && (
+                                <p className="text-xs text-purple-600 mt-1">
+                                    ↑ {Math.round(((forecast.totalPredicted - forecast.totalCurrent) / forecast.totalCurrent) * 100)}% higher
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Category Breakdown */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Category Forecasts</CardTitle>
+                    <CardDescription>Predicted spending by category</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        {forecast.categoryForecasts.slice(0, 8).map((cat) => (
+                            <div key={cat.category} className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium text-sm">{cat.category}</span>
+                                        {getTrendIcon(cat.trend)}
+                                        {cat.trend !== 'stable' && (
+                                            <span className={`text-xs ${cat.trend === 'increasing' ? 'text-red-600' : 'text-green-600'}`}>
+                                                {cat.trendPercentage}%
+                                            </span>
+                                        )}
+                                        <Badge variant="outline" className="text-xs">
+                                            {cat.confidence}
+                                        </Badge>
+                                    </div>
+                                    <span className="text-sm font-bold">
+                                        ₹{cat.predictedNextMonth.toLocaleString('en-IN')}
+                                    </span>
+                                </div>
+                                <div className="flex gap-2 text-xs text-muted-foreground">
+                                    <span>Current: ₹{cat.currentMonthSpending.toLocaleString('en-IN')}</span>
+                                    <span>•</span>
+                                    <span>Avg: ₹{cat.averageMonthly.toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full ${cat.trend === 'increasing' ? 'bg-red-500' : cat.trend === 'decreasing' ? 'bg-green-500' : 'bg-gray-400'}`}
+                                        style={{ width: `${Math.min((cat.currentMonthSpending / cat.predictedNextMonth) * 100, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Monthly Trend Chart */}
+            {forecast.monthlyTrend.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>6-Month Trend</CardTitle>
+                        <CardDescription>Your spending over time</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-end justify-between gap-2 h-40">
+                            {forecast.monthlyTrend.map((month, i) => {
+                                const maxSpending = Math.max(...forecast.monthlyTrend.map(m => m.spending));
+                                const height = (month.spending / maxSpending) * 100;
+
+                                return (
+                                    <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                                        <div className="w-full bg-primary/20 rounded-t-lg relative group" style={{ height: `${height}%` }}>
+                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                                                ₹{month.spending.toLocaleString('en-IN')}
+                                            </div>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">{month.month.split(' ')[0]}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    );
+}
