@@ -7,10 +7,11 @@ import { parseDate } from '@/lib/parser';
  * Handles all filter logic in one place
  */
 export function useTransactionFilters(transactions: Transaction[]) {
-    const [filters, setFilters] = useState<TransactionFilters & { monthFilter: string }>({
+    const [filters, setFilters] = useState<TransactionFilters & { monthFilter: string; typeFilter: string }>({
         searchQuery: '',
         categoryFilter: 'all',
         tagFilter: 'all',
+        typeFilter: 'all',
         sortBy: 'date-desc',
         dateRange: { from: null, to: null },
         monthFilter: 'All Months',
@@ -40,6 +41,11 @@ export function useTransactionFilters(transactions: Transaction[]) {
         // Category filter
         if (filters.categoryFilter !== 'all') {
             result = result.filter((t) => t.category === filters.categoryFilter);
+        }
+
+        // Type filter
+        if (filters.typeFilter !== 'all') {
+            result = result.filter((t) => t.type === filters.typeFilter);
         }
 
         // Month filter
@@ -89,6 +95,10 @@ export function useTransactionFilters(transactions: Transaction[]) {
         setFilters((prev) => ({ ...prev, tagFilter: tag }));
     };
 
+    const setTypeFilter = (type: string) => {
+        setFilters((prev) => ({ ...prev, typeFilter: type }));
+    };
+
     const setSortBy = (sort: string) => {
         setFilters((prev) => ({ ...prev, sortBy: sort }));
     };
@@ -106,6 +116,7 @@ export function useTransactionFilters(transactions: Transaction[]) {
             searchQuery: '',
             categoryFilter: 'all',
             tagFilter: 'all',
+            typeFilter: 'all',
             sortBy: 'date-desc',
             dateRange: { from: null, to: null },
             monthFilter: 'All Months',
@@ -118,6 +129,7 @@ export function useTransactionFilters(transactions: Transaction[]) {
         setSearchQuery,
         setCategoryFilter,
         setTagFilter,
+        setTypeFilter,
         setSortBy,
         setDateRange,
         setMonthFilter,

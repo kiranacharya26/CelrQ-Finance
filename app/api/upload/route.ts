@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 export const runtime = 'nodejs';
 
 // Helper to sanitize and format a transaction for Supabase
-const sanitizeTransaction = (raw: any, userEmail: string, bankName: string) => {
+const sanitizeTransaction = (raw: any, userEmail: string, bankName: string, uploadId: string) => {
     // Helper to find key case-insensitively
     const findKey = (pattern: RegExp) => Object.keys(raw).find(k => pattern.test(k));
 
@@ -63,12 +63,38 @@ const sanitizeTransaction = (raw: any, userEmail: string, bankName: string) => {
         category: raw.category || 'Uncategorized',
         merchant_name: raw.merchant_name || '',
         bank_name: bankName || raw.bank_name || '',
+        upload_id: uploadId,
     };
 };
 
 // Helper to upsert transactions
-const storeTransactions = async (transactions: any[], userEmail: string, bankName: string) => {
-    const sanitized = transactions.map(t => sanitizeTransaction(t, userEmail, bankName));
+const storeTransactions = async (transactions: any[], userEmail: string, bankName: string, fileName: string) => {
+    // 1. Create Upload Record
+    const uploadId = randomUUID();
+
+    // Try to insert into uploads table. If it fails (e.g. table doesn't exist yet), we proceed without upload_id
+    // to maintain backward compatibility until migration is run.
+    try {
+        const { error: uploadError } = await supabase.from('uploads').insert({
+            id: uploadId,
+            user_email: userEmail,
+            file_name: fileName,
+            bank_name: bankName,
+            transaction_count: transactions.length,
+            status: 'completed'
+        });
+
+        if (uploadError) {
+            console.warn('Failed to create upload record (table might be missing):', uploadError.message);
+            // If we can't create upload record, we might still want to save transactions but without upload_id?
+            // Or should we fail? For now, let's log and proceed, passing uploadId anyway.
+            // If the column 'upload_id' is missing in transactions, the next insert will fail or ignore it depending on strictness.
+        }
+    } catch (e) {
+        console.warn('Error creating upload record:', e);
+    }
+
+    const sanitized = transactions.map(t => sanitizeTransaction(t, userEmail, bankName, uploadId));
 
     // Batch upserts to avoid request size limits (Supabase/PostgREST limit)
     const BATCH_SIZE = 1000;
@@ -77,7 +103,18 @@ const storeTransactions = async (transactions: any[], userEmail: string, bankNam
         const { data, error } = await supabase.from('transactions').upsert(batch);
         if (error) {
             console.error('Supabase upsert error:', error);
-            throw error;
+            // If error is about missing column 'upload_id', retry without it
+            if (error.message?.includes('upload_id')) {
+                console.warn('Retrying without upload_id...');
+                const batchNoUploadId = batch.map((t: any) => {
+                    const { upload_id, ...rest } = t;
+                    return rest;
+                });
+                const { error: retryError } = await supabase.from('transactions').upsert(batchNoUploadId);
+                if (retryError) throw retryError;
+            } else {
+                throw error;
+            }
         }
     }
     return sanitized; // Return processed data
@@ -116,7 +153,7 @@ export async function POST(request: Request) {
             const { results: transactions, newlyLearnedKeywords } = await categorizeTransactions(pdfTransactions, learnedKeywords);
             console.timeEnd('categorize');
 
-            await storeTransactions(transactions, userEmail, bankName);
+            await storeTransactions(transactions, userEmail, bankName, file.name);
             return NextResponse.json({ transactions, newlyLearnedKeywords });
         }
 
@@ -137,7 +174,7 @@ export async function POST(request: Request) {
                 merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
             }));
 
-            await storeTransactions(transactions, userEmail, bankName);
+            await storeTransactions(transactions, userEmail, bankName, file.name);
             return NextResponse.json({ transactions, newlyLearnedKeywords });
         }
 
@@ -162,7 +199,7 @@ export async function POST(request: Request) {
                 merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
             }));
 
-            await storeTransactions(transactions, userEmail, bankName);
+            await storeTransactions(transactions, userEmail, bankName, file.name);
             return NextResponse.json({ transactions, newlyLearnedKeywords });
         }
 

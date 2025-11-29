@@ -2,7 +2,6 @@
 
 import { useState, useMemo, Suspense } from 'react';
 import dynamic from 'next/dynamic';
-import { Download, Filter, Trash2 } from 'lucide-react';
 import { parseDate } from '@/lib/parser';
 import { DateRange } from '@/types';
 
@@ -30,25 +29,11 @@ const GoalTracker = dynamic(() => import('@/components/GoalTracker').then(mod =>
     ssr: false,
 });
 
-
-
 import { BudgetManager } from '@/components/BudgetManager';
+import { SubscriptionTracker } from '@/components/SubscriptionTracker';
 import { DashboardHero } from '@/components/DashboardHero';
-import { DateRangePicker } from '@/components/DateRangePicker';
-import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exportToCSV, exportToPDF } from '@/lib/export';
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -148,9 +133,9 @@ export default function DashboardPage() {
         }
         console.log('📅 All unique months found:', Array.from(uniqueMonths.keys()).sort());
 
-        // Sort chronologically using the actual Date objects
+        // Sort chronologically using the actual Date objects (Descending: Newest First)
         return Array.from(uniqueMonths.entries())
-            .sort(([, dateA], [, dateB]) => dateA.getTime() - dateB.getTime())
+            .sort(([, dateA], [, dateB]) => dateB.getTime() - dateA.getTime())
             .map(([monthStr]) => monthStr);
     }, [transactions, dateKey]);
 
@@ -233,85 +218,20 @@ export default function DashboardPage() {
     return (
         <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6 max-w-full overflow-x-hidden">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sticky top-0 z-50 w-full bg-background p-2 sm:p-0">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    {/* Primary Controls */}
-                    <Select value={selectedBank} onValueChange={setSelectedBank}>
-                        <SelectTrigger className="w-full sm:w-[180px]" aria-label="Select bank account">
-                            <SelectValue placeholder="Select Bank" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Banks</SelectItem>
-                            {availableBanks.map(bank => (
-                                <SelectItem key={bank} value={bank}>{bank}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                        <SelectTrigger className="w-full sm:w-[180px]" aria-label="Select month">
-                            <SelectValue placeholder="Select Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="All Months">All Months</SelectItem>
-                            {months.map(month => (
-                                <SelectItem key={month} value={month}>{month}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-
-                    <DateRangePicker onRangeChange={setDateRange} />
-
-                    {/* Actions Menu */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="outline"
-                                className="w-full sm:w-auto min-w-[44px]"
-                                aria-label="Filter options"
-                            >
-                                <Filter className="h-4 w-4" />
-                                <span className="ml-2 sm:hidden">Options</span>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-64">
-                            <div className="p-3">
-                                <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Actions</p>
-                                <div className="space-y-2">
-                                    <BudgetManager />
-                                    {availableBanks.length > 0 && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={handleDeleteBankData}
-                                            className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            aria-label="Delete bank data"
-                                        >
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            Delete Data
-                                        </Button>
-                                    )}
-                                </div>
-
-                                <div className="my-3 border-t" />
-
-                                <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Export</p>
-                                <div className="space-y-1">
-                                    <DropdownMenuItem onClick={() => exportToCSV(filteredTransactions)} className="cursor-pointer">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        <span>Export as CSV</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => exportToPDF(filteredTransactions)} className="cursor-pointer">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        <span>Export as PDF</span>
-                                    </DropdownMenuItem>
-                                </div>
-                            </div>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            </div>
+            {/* Header */}
+            <DashboardHeader
+                selectedBank={selectedBank}
+                onBankChange={setSelectedBank}
+                availableBanks={availableBanks}
+                selectedMonth={selectedMonth}
+                onMonthChange={setSelectedMonth}
+                months={months}
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                onDeleteBankData={handleDeleteBankData}
+                onExportCSV={() => exportToCSV(filteredTransactions)}
+                onExportPDF={() => exportToPDF(filteredTransactions)}
+            />
 
             {/* Hero Stats */}
             <div className="mb-4">
@@ -341,9 +261,13 @@ export default function DashboardPage() {
                             dateKey={dateKey}
                         />
                     </Suspense>
+
+                    <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
+                        <SubscriptionTracker transactions={transactions} />
+                    </Suspense>
                 </div>
 
-                {/* Sidebar Area - Takes up 3 columns on desktop, full width on mobile */}
+                {/* Right Column */}
                 <div className="lg:col-span-3 space-y-4 sm:space-y-6 min-w-0">
                     <Suspense fallback={<div className="h-[300px] bg-muted animate-pulse rounded"></div>}>
                         <AIInsights transactions={filteredTransactions} />
@@ -351,6 +275,10 @@ export default function DashboardPage() {
                     <Suspense fallback={<div className="h-[250px] bg-muted animate-pulse rounded"></div>}>
                         <GoalTracker transactions={filteredTransactions} />
                     </Suspense>
+                    <BudgetManager
+                        transactions={filteredTransactions}
+                        currentMonth={selectedMonth === 'All Months' ? new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) : selectedMonth}
+                    />
                     <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
                         <BudgetProgress transactions={filteredTransactions} selectedMonth={selectedMonth} />
                     </Suspense>

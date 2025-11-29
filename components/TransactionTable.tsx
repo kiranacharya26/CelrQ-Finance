@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { UserStorage } from "@/lib/storage";
-import { supabase } from "@/lib/supabase";
+import { useTransactionTable } from '@/hooks/useTransactionTable';
+import { TransactionPagination } from '@/components/transactions/TransactionPagination';
 
 import {
     Table,
@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Info, Plus, X, RefreshCw, FileText, Tag as TagIcon, Filter } from "lucide-react";
+import { Info, Plus, X, RefreshCw, FileText, Tag as TagIcon, Filter } from "lucide-react";
 import {
     Popover,
     PopoverContent,
@@ -41,7 +41,6 @@ import {
 } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Transaction } from "@/types";
-import { detectRecurringTransactions } from "@/lib/recurring";
 import { getTransactionDisplayInfo, getCategoryIcon } from "@/lib/merchants";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -50,68 +49,47 @@ interface TransactionTableProps {
     onCategoryChange?: (index: number, newCategory: string) => void;
     currentCategoryFilter?: string;
     onCategoryFilterChange?: (category: string) => void;
+    currentTypeFilter?: string;
+    onTypeFilterChange?: (type: string) => void;
     uniqueCategories?: string[];
 }
 
-const DEFAULT_CATEGORIES = [
-    'Healthcare',
-    'Groceries',
-    'Restaurants & Dining',
-    'Fuel',
-    'Ride Services',
-    'Public Transport',
-    'Bills',
-    'Telecom',
-    'Online Shopping',
-    'Retail & Stores',
-    'Streaming Services',
-    'Events & Recreation',
-    'Housing',
-    'Education',
-    'Income',
-    'Insurance',
-    'Investments',
-    'Personal Care',
-    'Other'
-];
+
 
 export function TransactionTable({
     transactions,
     onCategoryChange,
     currentCategoryFilter = 'all',
     onCategoryFilterChange,
+    currentTypeFilter = 'all',
+    onTypeFilterChange,
     uniqueCategories = []
 }: TransactionTableProps) {
-    const { data: session } = useSession();
-    const [currentPage, setCurrentPage] = useState(1);
-    const [localTransactions, setLocalTransactions] = useState(transactions);
-    const [customCategories, setCustomCategories] = useState<string[]>([]);
-    const [isAddingCategory, setIsAddingCategory] = useState(false);
-    const [newCategoryName, setNewCategoryName] = useState('');
+    const {
+        session,
+        currentPage,
+        setCurrentPage,
+        localTransactions,
+        setLocalTransactions,
+        customCategories,
+        allCategories,
+        selectedIds,
+        toggleSelectAll,
+        toggleSelectRow,
+        handleCategoryChange,
+        itemsPerPage,
+        totalPages,
+        startIndex,
+        endIndex,
+        currentTransactions,
+        recurringIndices,
+        isAddingCategory,
+        setIsAddingCategory,
+        newCategoryName,
+        setNewCategoryName,
+        handleAddCustomCategory,
+    } = useTransactionTable({ transactions, onCategoryChange, uniqueCategories });
     const [editingNote, setEditingNote] = useState<{ index: number; note: string; tags: string } | null>(null);
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const itemsPerPage = 10;
-
-    // Sync localTransactions with transactions prop when it changes
-    useEffect(() => {
-        setLocalTransactions(transactions);
-        setCurrentPage(1); // Reset to first page when transactions change
-        setSelectedIds(new Set()); // Clear selection
-    }, [transactions]);
-
-    useEffect(() => {
-        if (session?.user?.email) {
-            const saved = UserStorage.getData(session.user.email, 'customCategories', []);
-            setCustomCategories(saved);
-        }
-    }, [session]);
-
-    const allCategories = [...DEFAULT_CATEGORIES, ...customCategories].sort();
-
-    // Detect recurring transactions
-    const recurringIndices = useMemo(() => {
-        return detectRecurringTransactions(transactions);
-    }, [transactions]);
 
     if (localTransactions.length === 0) {
         return <div className="text-center p-8 text-muted-foreground">No transactions found.</div>;
@@ -129,173 +107,33 @@ export function TransactionTable({
         'merchantIcon',
         'bank_name',
         'bankName',
-        'Withdrawal Amt.',  // Redundant - we have type and amount
-        'Deposit Amt.',     // Redundant - we have type and amount
+        'narration',        // Merged into description
+        'amount',           // Split into Debit/Credit
         'withdrawal',       // Normalized version (if exists)
         'deposit'           // Normalized version (if exists)
     ];
     const headers = Object.keys(localTransactions[0]).filter(key => !hiddenColumns.includes(key));
 
     const categoryHeaderIndex = headers.findIndex(h => h.toLowerCase().includes('category'));
-    const descriptionHeaderIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('narration'));
-
-    const totalPages = Math.ceil(transactions.length / itemsPerPage);
-
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const currentTransactions = localTransactions.slice(startIndex, endIndex);
-
+    const descriptionHeaderIndex = headers.findIndex(h => h.toLowerCase().includes('description'));
+    const typeHeaderIndex = headers.findIndex(h => h.toLowerCase() === 'type');
     const handlePrevious = () => {
-        setCurrentPage((prev) => Math.max(prev - 1, 1));
+        setCurrentPage(Math.max(currentPage - 1, 1));
     };
 
     const handleNext = () => {
-        setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+        setCurrentPage(Math.min(currentPage + 1, totalPages));
     };
 
-    const toggleSelectAll = () => {
-        if (selectedIds.size === currentTransactions.length) {
-            setSelectedIds(new Set());
-        } else {
-            const newSelected = new Set(currentTransactions.map(t => t.id));
-            setSelectedIds(newSelected);
-        }
-    };
 
-    const toggleSelectRow = (id: string) => {
-        const newSelected = new Set(selectedIds);
-        if (newSelected.has(id)) {
-            newSelected.delete(id);
-        } else {
-            newSelected.add(id);
-        }
-        setSelectedIds(newSelected);
-    };
-
-    const handleAddCustomCategory = () => {
-        if (newCategoryName.trim() && !allCategories.includes(newCategoryName.trim()) && session?.user?.email) {
-            const updated = [...customCategories, newCategoryName.trim()];
-            setCustomCategories(updated);
-            UserStorage.saveData(session.user.email, 'customCategories', updated);
-            setNewCategoryName('');
-            setIsAddingCategory(false);
-        }
-    };
-
-    const handleCategoryChange = async (globalIndex: number, newCategory: string) => {
-        if (!session?.user?.email) return;
-
-        const transactionToUpdate = localTransactions[globalIndex];
-        const isBulkUpdate = selectedIds.has(transactionToUpdate.id) && selectedIds.size > 1;
-
-        const idsToUpdate = isBulkUpdate ? Array.from(selectedIds) : [transactionToUpdate.id];
-
-        // Optimistic update
-        const updatedLocal = [...localTransactions];
-
-        idsToUpdate.forEach(id => {
-            const idx = updatedLocal.findIndex(t => t.id === id);
-            if (idx !== -1) {
-                updatedLocal[idx] = { ...updatedLocal[idx], category: newCategory };
-            }
-        });
-
-        setLocalTransactions(updatedLocal);
-
-        try {
-            // Update in Supabase
-            const { error } = await supabase
-                .from('transactions')
-                .update({ category: newCategory })
-                .in('id', idsToUpdate)
-                .eq('user_email', session.user.email);
-
-            if (error) {
-                console.error('Error updating category:', error);
-                // Revert on error
-                setLocalTransactions(localTransactions);
-                return;
-            }
-
-            // LEARNING SYSTEM: Extract keyword from transaction and save it (Local for now, can be moved to DB)
-            // Only learn from the primary transaction to avoid spamming
-            const narration = transactionToUpdate.narration || transactionToUpdate.description || '';
-            let keyword = '';
-
-            // Extract merchant name from UPI transactions
-            if (narration.toLowerCase().includes('upi-')) {
-                const parts = narration.split('-');
-                if (parts.length >= 2) {
-                    keyword = parts[1]
-                        .trim()
-                        .replace(/CO$/i, '')
-                        .replace(/PVT$/i, '')
-                        .replace(/LTD$/i, '')
-                        .replace(/INC$/i, '')
-                        .replace(/\d+$/i, '')
-                        .trim()
-                        .toLowerCase();
-                }
-            } else {
-                // For non-UPI transactions, extract first meaningful word
-                const words = narration.split(/[\s-]+/).filter((w: string) => w.length > 3);
-                if (words.length > 0) {
-                    keyword = words[0].toLowerCase();
-                }
-            }
-
-            // Save the learned keyword if it's meaningful
-            if (keyword && keyword.length > 2) {
-                let learnedKeywords: Record<string, string[]> = UserStorage.getData(
-                    session.user.email,
-                    'learnedKeywords',
-                    {}
-                );
-
-                // Handle double-stringified data from previous bug
-                if (typeof learnedKeywords === 'string') {
-                    try {
-                        learnedKeywords = JSON.parse(learnedKeywords);
-                    } catch (e) {
-                        learnedKeywords = {};
-                    }
-                }
-
-                if (!learnedKeywords[newCategory]) {
-                    learnedKeywords[newCategory] = [];
-                }
-
-                // Add keyword if not already present
-                if (!learnedKeywords[newCategory].includes(keyword)) {
-                    learnedKeywords[newCategory].push(keyword);
-                    UserStorage.saveData(session.user.email, 'learnedKeywords', learnedKeywords);
-                    console.log(`Learned: "${keyword}" → ${newCategory}`);
-                }
-            }
-
-            // Notify parent if callback provided
-            if (onCategoryChange) {
-                onCategoryChange(globalIndex, newCategory);
-            }
-
-            // Clear selection after bulk update
-            if (isBulkUpdate) {
-                setSelectedIds(new Set());
-            }
-
-        } catch (err) {
-            console.error('Error in handleCategoryChange:', err);
-            setLocalTransactions(localTransactions);
-        }
-    };
 
     return (
         <div className="space-y-4">
-            <div className="w-full overflow-x-auto">
+            <div className="rounded-md border bg-card hidden md:block">
                 <Table>
                     <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                            <TableHead className="w-[50px] bg-muted/30 px-6 py-3">
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                            <TableHead className="w-[50px] px-6 py-3 h-12">
                                 <Checkbox
                                     checked={currentTransactions.length > 0 && selectedIds.size === currentTransactions.length}
                                     onCheckedChange={toggleSelectAll}
@@ -304,10 +142,16 @@ export function TransactionTable({
                             </TableHead>
                             {headers.map((header, idx) => {
                                 const isCategory = idx === categoryHeaderIndex;
+                                const isType = idx === typeHeaderIndex;
+                                let displayHeader = header;
+                                if (header === 'Withdrawal Amt.') displayHeader = 'Debit';
+                                if (header === 'Deposit Amt.') displayHeader = 'Credit';
+                                if (header === 'type') displayHeader = 'Type'; // Capitalize
+
                                 return (
                                     <TableHead key={header} className="whitespace-nowrap bg-muted/30 px-6 py-3 h-12 text-xs uppercase tracking-wider font-medium text-muted-foreground">
                                         <div className="flex items-center gap-2">
-                                            {header}
+                                            {displayHeader}
                                             {isCategory && (
                                                 <div className="flex items-center gap-1">
                                                     <TooltipProvider>
@@ -358,6 +202,41 @@ export function TransactionTable({
                                                         </DropdownMenu>
                                                     )}
                                                 </div>
+                                            )}
+                                            {isType && onTypeFilterChange && (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className={`h-6 w-6 ml-1 hover:bg-muted-foreground/10 ${currentTypeFilter !== 'all' ? 'text-primary bg-primary/10' : 'text-muted-foreground opacity-50 hover:opacity-100'}`}
+                                                        >
+                                                            <Filter className="h-3 w-3" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="start" className="w-40">
+                                                        <DropdownMenuLabel>Filter by Type</DropdownMenuLabel>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onClick={() => onTypeFilterChange('all')}
+                                                            className={currentTypeFilter === 'all' ? 'bg-accent' : ''}
+                                                        >
+                                                            All Types
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => onTypeFilterChange('income')}
+                                                            className={currentTypeFilter === 'income' ? 'bg-accent' : ''}
+                                                        >
+                                                            Income
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => onTypeFilterChange('expense')}
+                                                            className={currentTypeFilter === 'expense' ? 'bg-accent' : ''}
+                                                        >
+                                                            Expense
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             )}
                                         </div>
                                     </TableHead>
@@ -457,7 +336,11 @@ export function TransactionTable({
                                                 ) : (
                                                     <div className="flex items-center gap-2">
                                                         <span className={isFirstColumn ? "font-medium text-foreground" : "text-muted-foreground"}>
-                                                            {t[header]}
+                                                            {header === 'Withdrawal Amt.' || header === 'Deposit Amt.' ? (
+                                                                t[header] ? `₹${Number(t[header]).toLocaleString('en-IN')}` : '-'
+                                                            ) : (
+                                                                t[header]
+                                                            )}
                                                         </span>
 
                                                         {(header.toLowerCase().includes('narration') || header.toLowerCase().includes('description')) && isRecurring && (
@@ -547,33 +430,116 @@ export function TransactionTable({
                 </Table>
             </div>
 
-            {totalPages > 1 && (
-                <div className="flex items-center justify-between border-t pt-4">
-                    <div className="text-sm text-muted-foreground">
-                        Page {currentPage} of {totalPages}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handlePrevious}
-                            disabled={currentPage === 1}
+            {/* Mobile Card View */}
+            <div className="block md:hidden space-y-3">
+                {currentTransactions.map((t, i) => {
+                    const globalIndex = startIndex + i;
+                    const isSelected = selectedIds.has(t.id);
+                    const date = t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
+                    const description = t.description || t.narration || 'No Description';
+                    const amount = t['Withdrawal Amt.'] || t['Deposit Amt.'] || t.amount || 0;
+                    const isCredit = !!t['Deposit Amt.'] || t.type === 'income';
+                    const category = t.category || 'Other';
+                    const { icon: categoryIcon, color: categoryColor } = getCategoryIcon(category);
+
+                    return (
+                        <div
+                            key={globalIndex}
+                            className={`relative rounded-lg border bg-card overflow-hidden transition-all ${isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border'}`}
                         >
-                            <ChevronLeft className="h-4 w-4 mr-1" />
-                            Previous
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleNext}
-                            disabled={currentPage === totalPages}
-                        >
-                            Next
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
-                    </div>
-                </div>
-            )}
+                            {/* Top Section - Description & Amount */}
+                            <div className="p-4 pb-3">
+                                <div className="flex items-start gap-3">
+                                    {/* Checkbox */}
+                                    <div className="pt-0.5 flex-shrink-0">
+                                        <Checkbox
+                                            checked={isSelected}
+                                            onCheckedChange={() => toggleSelectRow(t.id)}
+                                            aria-label="Select transaction"
+                                            className="h-4 w-4"
+                                        />
+                                    </div>
+
+                                    {/* Description & Date */}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-sm leading-tight mb-1 line-clamp-2 break-words">
+                                            {description}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {date}
+                                        </p>
+                                    </div>
+
+                                    {/* Amount */}
+                                    <div className="flex-shrink-0 text-right">
+                                        <div className={`text-base font-bold ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
+                                            {isCredit ? '+' : '-'}₹{Number(amount).toLocaleString('en-IN')}
+                                        </div>
+                                        <Badge
+                                            variant="outline"
+                                            className={`text-[10px] mt-1 ${isCredit ? 'border-green-600/30 text-green-600' : 'border-red-600/30 text-red-600'}`}
+                                        >
+                                            {t.type || (isCredit ? 'Income' : 'Expense')}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Bottom Section - Category */}
+                            <div className="px-4 pb-3 pt-2 border-t bg-muted/30">
+                                <Select
+                                    value={category}
+                                    onValueChange={(value) => {
+                                        if (value === '__add_new__') {
+                                            setIsAddingCategory(true);
+                                        } else {
+                                            handleCategoryChange(globalIndex, value);
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger className="w-full h-9 text-xs border-border/50 bg-background hover:bg-background/80">
+                                        <div className="flex items-center gap-2">
+                                            <span style={{ color: categoryColor }}>{categoryIcon}</span>
+                                            <span className="font-medium">{category}</span>
+                                        </div>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {allCategories.map(cat => {
+                                            const { icon, color } = getCategoryIcon(cat);
+                                            return (
+                                                <SelectItem key={cat} value={cat}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span style={{ color }}>{icon}</span>
+                                                        <span>{cat}</span>
+                                                    </div>
+                                                </SelectItem>
+                                            );
+                                        })}
+                                        <SelectItem value="__add_new__" className="text-primary">
+                                            <div className="flex items-center gap-2">
+                                                <Plus className="h-4 w-4" />
+                                                <span>Create New Category</span>
+                                            </div>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+
+            <TransactionPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                totalItems={localTransactions.length}
+                onPrevious={handlePrevious}
+                onNext={handleNext}
+                onPageChange={setCurrentPage}
+            />
         </div>
     );
 }

@@ -3,29 +3,15 @@
 import { useState, useMemo, Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { DateRangePicker } from '@/components/DateRangePicker';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Filter, X, DollarSign, Activity, Calculator } from 'lucide-react';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { Card } from '@/components/ui/card';
 import { exportToCSV, exportToPDF } from '@/lib/export';
 import { getAllTags } from '@/lib/transactionNotes';
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useTransactionFilters } from '@/hooks/useTransactionFilters';
+import { TransactionsHeader } from '@/components/transactions/TransactionsHeader';
+import { TransactionStats } from '@/components/transactions/TransactionStats';
+import { TransactionFilters } from '@/components/transactions/TransactionFilters';
 import { DateRange } from '@/types';
 
 // Lazy load TransactionTable for better performance
@@ -45,6 +31,7 @@ const TransactionTable = dynamic(() => import('@/components/TransactionTable').t
 export default function TransactionsPage() {
     const { userEmail, isAuthenticated } = useAuth();
     const [selectedBank, setSelectedBank] = useState<string>('all');
+    const [dateRange, setLocalDateRange] = useState<DateRange>({ from: null, to: null });
 
     const { transactions, availableBanks, loading, refresh } = useTransactions({
         userEmail,
@@ -57,11 +44,18 @@ export default function TransactionsPage() {
         setSearchQuery,
         setCategoryFilter,
         setTagFilter,
+        setTypeFilter,
         setSortBy,
-        setDateRange,
+        setDateRange: setFilterDateRange,
         setMonthFilter,
         clearFilters,
     } = useTransactionFilters(transactions);
+
+    // Update both local and filter state
+    const handleDateRangeChange = (range: DateRange) => {
+        setLocalDateRange(range);
+        setFilterDateRange(range);
+    };
 
     // Sync with URL params
     const searchParams = useSearchParams();
@@ -171,150 +165,46 @@ export default function TransactionsPage() {
     }
 
     return (
-        <div className="flex-1 space-y-6 p-8 pt-6">
+        <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
-                    {monthParam && monthParam !== 'All Months' && (
-                        <p className="text-muted-foreground">Viewing data for {monthParam}</p>
-                    )}
-                </div>
-                <div className="flex items-center space-x-2">
-                    <Select value={selectedBank} onValueChange={setSelectedBank}>
-                        <SelectTrigger className="w-[180px]" aria-label="Select bank account">
-                            <SelectValue placeholder="Select Bank" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Banks</SelectItem>
-                            {availableBanks.map(bank => (
-                                <SelectItem key={bank} value={bank}>{bank}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-
-                    <DateRangePicker onRangeChange={setDateRange} />
-
-                    {/* Export Menu */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="icon" aria-label="Export options">
-                                <Download className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => exportToCSV(filteredTransactions)}>
-                                Export CSV
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportToPDF(filteredTransactions)}>
-                                Export PDF
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            </div>
+            {/* Header */}
+            <TransactionsHeader
+                selectedBank={selectedBank}
+                onBankChange={setSelectedBank}
+                availableBanks={availableBanks}
+                monthParam={monthParam}
+                dateRange={dateRange}
+                onDateRangeChange={handleDateRangeChange}
+                onExportCSV={() => exportToCSV(filteredTransactions)}
+                onExportPDF={() => exportToPDF(filteredTransactions)}
+            />
 
             {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-                        <DollarSign className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">₹{totalExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                        <p className="text-xs text-muted-foreground">{transactionCount} transactions</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Income</CardTitle>
-                        <Activity className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">₹{totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                        <p className="text-xs text-muted-foreground">From deposits</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Average Transaction</CardTitle>
-                        <Calculator className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">₹{averageTransaction.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                        <p className="text-xs text-muted-foreground">Per transaction</p>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* Stats Cards */}
+            <TransactionStats
+                totalExpenses={totalExpenses}
+                totalIncome={totalIncome}
+                transactionCount={transactionCount}
+                averageTransaction={averageTransaction}
+            />
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-2" role="search" aria-label="Transaction filters">
-                <div className="relative max-w-sm">
-                    <Input
-                        placeholder="Search transactions..."
-                        value={filters.searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        aria-label="Search transactions"
-                    />
-                    {filters.searchQuery && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                            onClick={() => setSearchQuery('')}
-                            aria-label="Clear search"
-                        >
-                            <X className="h-4 w-4" />
-                        </Button>
-                    )}
-                </div>
-
-                <Select value={filters.categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-[180px]" aria-label="Filter by category">
-                        <Filter className="h-4 w-4 mr-2" aria-hidden="true" />
-                        <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {uniqueCategories.map(cat => (
-                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                <Select value={filters.tagFilter} onValueChange={setTagFilter}>
-                    <SelectTrigger className="w-[180px]" aria-label="Filter by tag">
-                        <Filter className="h-4 w-4 mr-2" aria-hidden="true" />
-                        <SelectValue placeholder="Tags" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Tags</SelectItem>
-                        {availableTags.map(tag => (
-                            <SelectItem key={tag} value={tag}>{tag}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                <Select value={filters.sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-[180px]" aria-label="Sort transactions">
-                        <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="date-desc">Date (Newest First)</SelectItem>
-                        <SelectItem value="date-asc">Date (Oldest First)</SelectItem>
-                        <SelectItem value="amount-desc">Amount (High to Low)</SelectItem>
-                        <SelectItem value="amount-asc">Amount (Low to High)</SelectItem>
-                    </SelectContent>
-                </Select>
-
-                {hasActiveFilters && (
-                    <Button variant="ghost" size="sm" onClick={clearFilters} aria-label="Clear all filters">
-                        <X className="h-4 w-4 mr-2" />
-                        Clear Filters
-                    </Button>
-                )}
-            </div>
+            {/* Filters */}
+            {/* Filters */}
+            <TransactionFilters
+                searchQuery={filters.searchQuery}
+                onSearchChange={setSearchQuery}
+                categoryFilter={filters.categoryFilter}
+                onCategoryChange={setCategoryFilter}
+                tagFilter={filters.tagFilter}
+                onTagChange={setTagFilter}
+                sortBy={filters.sortBy}
+                onSortChange={setSortBy}
+                uniqueCategories={uniqueCategories}
+                availableTags={availableTags}
+                hasActiveFilters={hasActiveFilters}
+                onClearFilters={clearFilters}
+            />
 
             {/* Transaction Table */}
             <Suspense fallback={
@@ -331,6 +221,8 @@ export default function TransactionsPage() {
                     onCategoryChange={handleCategoryChange}
                     currentCategoryFilter={filters.categoryFilter}
                     onCategoryFilterChange={setCategoryFilter}
+                    currentTypeFilter={filters.typeFilter}
+                    onTypeFilterChange={setTypeFilter}
                     uniqueCategories={uniqueCategories}
                 />
             </Suspense>

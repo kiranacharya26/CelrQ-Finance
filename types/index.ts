@@ -111,6 +111,17 @@ export interface FileUploadProps {
     onUploadSuccess?: () => void;
 }
 
+// Upload Record
+export interface UploadRecord {
+    id: string;
+    user_email: string;
+    file_name: string;
+    bank_name: string;
+    upload_date: string;
+    transaction_count: number;
+    status: string;
+}
+
 // Auth Types
 export interface UserSession {
     user: {

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { SessionProvider } from "@/components/SessionProvider";
+import { TransactionsProvider } from "@/context/TransactionsContext";
 import { ChatInterface } from "@/components/ChatInterface";
 
 const geistSans = Geist({
@@ -89,13 +90,15 @@ export default function RootLayout({
         </a>
 
         <SessionProvider>
-          <div className="relative flex min-h-screen flex-col">
-            <Navbar />
-            <main id="main-content" className="flex-1 overflow-x-hidden">
-              {children}
-            </main>
-            <ChatInterface />
-          </div>
+          <TransactionsProvider>
+            <div className="relative flex min-h-screen flex-col">
+              <Navbar />
+              <main id="main-content" className="flex-1 overflow-x-hidden">
+                {children}
+              </main>
+              <ChatInterface />
+            </div>
+          </TransactionsProvider>
         </SessionProvider>
       </body>
     </html>
