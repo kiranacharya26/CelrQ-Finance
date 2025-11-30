@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { LogOut, Menu, X } from 'lucide-react';
+import { LogOut, Menu, X, Crown } from 'lucide-react';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -22,6 +22,24 @@ export function Navbar() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isPremium, setIsPremium] = useState(false);
+
+    // Check if user has premium subscription
+    useEffect(() => {
+        const checkPremiumStatus = async () => {
+            if (session?.user?.email) {
+                try {
+                    const userId = (session.user as any).id || '';
+                    const res = await fetch(`/api/payment/status?userId=${userId}&email=${session.user.email}`);
+                    const data = await res.json();
+                    setIsPremium(data.hasPaid || false);
+                } catch (error) {
+                    console.error('Failed to check premium status:', error);
+                }
+            }
+        };
+        checkPremiumStatus();
+    }, [session]);
 
     const monthParam = searchParams.get('month');
 
@@ -51,7 +69,7 @@ export function Navbar() {
                 </div>
 
                 {/* Desktop Navigation */}
-                {session && (
+                {session && isPremium && (
                     <nav className="hidden md:flex items-center space-x-6 text-sm font-medium ml-6" aria-label="Primary navigation">
                         <Link
                             href={getLinkWithParams('/dashboard')}
@@ -68,6 +86,14 @@ export function Navbar() {
                             aria-current={pathname === '/transactions' ? 'page' : undefined}
                         >
                             Transactions
+                        </Link>
+                        <Link
+                            href={getLinkWithParams('/insights')}
+                            className={`transition-colors hover:text-foreground/80 ${pathname === '/insights' ? 'text-foreground' : 'text-foreground/60'
+                                }`}
+                            aria-current={pathname === '/insights' ? 'page' : undefined}
+                        >
+                            Insights
                         </Link>
                     </nav>
                 )}
@@ -96,14 +122,29 @@ export function Navbar() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent className="w-56" align="end" forceMount>
                                 <DropdownMenuLabel className="font-normal">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sticky top-0 z-10 bg-background p-2 sm:p-0 overflow-visible">
-                                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1><p className="text-sm font-medium leading-none">{session.user?.name}</p>
+                                    <div className="flex flex-col space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-medium leading-none">{session.user?.name}</p>
+                                            {isPremium && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                                                    <Crown className="h-3 w-3" />
+                                                    Premium
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-xs leading-none text-muted-foreground">
                                             {session.user?.email}
                                         </p>
                                     </div>
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
+                                {isPremium && (
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/settings" className="cursor-pointer">
+                                            Settings
+                                        </Link>
+                                    </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem
                                     onClick={() => signOut()}
                                     aria-label="Sign out"
@@ -142,25 +183,44 @@ export function Navbar() {
                                             <AvatarImage src={session.user?.image || ''} />
                                             <AvatarFallback>{session.user?.name?.charAt(0) || 'U'}</AvatarFallback>
                                         </Avatar>
-                                        <div className="flex flex-col">
-                                            <span className="font-medium">{session.user?.name}</span>
+                                        <div className="flex flex-col flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">{session.user?.name}</span>
+                                                {isPremium && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                                                        <Crown className="h-3 w-3" />
+                                                        Pro
+                                                    </span>
+                                                )}
+                                            </div>
                                             <span className="text-xs text-muted-foreground">{session.user?.email}</span>
                                         </div>
                                     </div>
-                                    <Link
-                                        href={getLinkWithParams('/dashboard')}
-                                        className={`text-lg font-medium transition-colors hover:text-primary ${pathname === '/dashboard' ? 'text-primary' : 'text-muted-foreground'}`}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                    >
-                                        Dashboard
-                                    </Link>
-                                    <Link
-                                        href={getLinkWithParams('/transactions')}
-                                        className={`text-lg font-medium transition-colors hover:text-primary ${pathname === '/transactions' ? 'text-primary' : 'text-muted-foreground'}`}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                    >
-                                        Transactions
-                                    </Link>
+                                    {isPremium && (
+                                        <>
+                                            <Link
+                                                href={getLinkWithParams('/dashboard')}
+                                                className={`text-lg font-medium transition-colors hover:text-primary ${pathname === '/dashboard' ? 'text-primary' : 'text-muted-foreground'}`}
+                                                onClick={() => setMobileMenuOpen(false)}
+                                            >
+                                                Dashboard
+                                            </Link>
+                                            <Link
+                                                href={getLinkWithParams('/transactions')}
+                                                className={`text-lg font-medium transition-colors hover:text-primary ${pathname === '/transactions' ? 'text-primary' : 'text-muted-foreground'}`}
+                                                onClick={() => setMobileMenuOpen(false)}
+                                            >
+                                                Transactions
+                                            </Link>
+                                            <Link
+                                                href={getLinkWithParams('/insights')}
+                                                className={`text-lg font-medium transition-colors hover:text-primary ${pathname === '/insights' ? 'text-primary' : 'text-muted-foreground'}`}
+                                                onClick={() => setMobileMenuOpen(false)}
+                                            >
+                                                Insights
+                                            </Link>
+                                        </>
+                                    )}
                                     <Button
                                         variant="ghost"
                                         className="justify-start px-0 text-lg font-medium text-muted-foreground hover:text-primary"

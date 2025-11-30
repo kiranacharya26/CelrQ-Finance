@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageCircle, X, Send, Sparkles, TrendingUp, Target, Wallet } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { Message, processQuery, AssistantContext } from '@/lib/assistant';
+import { Message } from '@/lib/assistant';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useGoals } from '@/lib/goals';
 import { cn } from '@/lib/utils';
@@ -33,11 +33,24 @@ export function ChatInterface() {
         selectedBank: 'all'
     });
     const { goals } = useGoals();
+    const [isPremium, setIsPremium] = useState(false);
 
-    const context: AssistantContext = {
-        transactions,
-        goals,
-    };
+
+
+    useEffect(() => {
+        const checkPremiumStatus = async () => {
+            if (session?.user?.email) {
+                try {
+                    const res = await fetch(`/api/payment/status?email=${session.user.email}`);
+                    const data = await res.json();
+                    setIsPremium(data.hasPaid || false);
+                } catch (error) {
+                    console.error('Failed to check premium status:', error);
+                }
+            }
+        };
+        checkPremiumStatus();
+    }, [session?.user?.email]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -61,16 +74,82 @@ export function ChatInterface() {
             timestamp: new Date(),
         };
 
-        setMessages((prev) => [...prev, userMessage]);
+        const newMessages = [...messages, userMessage];
+        setMessages(newMessages);
         setInputValue('');
         setIsTyping(true);
 
-        // Simulate network delay for natural feel
-        setTimeout(() => {
-            const response = processQuery(text, context);
-            setMessages((prev) => [...prev, response]);
+        try {
+            // 1. Prepare Context Summary
+            const totalIncome = transactions
+                .filter(t => t.type === 'income')
+                .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+            const totalExpenses = transactions
+                .filter(t => t.type === 'expense')
+                .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+            // Top Categories
+            const expensesByCategory: Record<string, number> = {};
+            transactions
+                .filter(t => t.type === 'expense')
+                .forEach(t => {
+                    const cat = t.category || 'Uncategorized';
+                    expensesByCategory[cat] = (expensesByCategory[cat] || 0) + (Number(t.amount) || 0);
+                });
+
+            const topCategories = Object.entries(expensesByCategory)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 3)
+                .map(([category, amount]) => ({ category, amount }));
+
+            const contextSummary = {
+                summary: {
+                    totalIncome,
+                    totalExpenses,
+                    netSavings: totalIncome - totalExpenses,
+                    topCategories
+                },
+                recentTransactions: transactions.slice(0, 5).map(t => ({
+                    date: t.date,
+                    description: t.description || t.Narration,
+                    amount: Number(t.amount) || Number(t['Withdrawal Amt.']) || Number(t.withdrawal) || 0,
+                    category: t.category || 'Uncategorized'
+                })),
+                goals: goals.map(g => ({
+                    name: g.name,
+                    currentAmount: g.currentAmount,
+                    targetAmount: g.targetAmount,
+                    deadline: g.targetDate
+                }))
+            };
+
+            // 2. Call API
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+                    context: contextSummary
+                })
+            });
+
+            if (!res.ok) throw new Error('Failed to get response');
+
+            const data = await res.json();
+            setMessages(prev => [...prev, { ...data, id: Date.now().toString() }]);
+
+        } catch (error) {
+            console.error('Chat error:', error);
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: "I'm having trouble connecting right now. Please try again later.",
+                timestamp: new Date()
+            }]);
+        } finally {
             setIsTyping(false);
-        }, 600);
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -87,6 +166,8 @@ export function ChatInterface() {
         { label: 'Financial Advice', icon: '💡', query: 'Give me some advice' },
     ];
 
+    if (!session || !isPremium) return null;
+
     return (
         <>
             {/* Floating Action Button */}
@@ -97,6 +178,7 @@ export function ChatInterface() {
                     isOpen ? "rotate-90 scale-0 opacity-0" : "scale-100 opacity-100"
                 )}
                 size="icon"
+                aria-label="Toggle chat assistant"
             >
                 <Sparkles className="h-6 w-6" />
             </Button>
@@ -127,6 +209,7 @@ export function ChatInterface() {
                             size="icon"
                             className="text-primary-foreground hover:bg-white/20 rounded-full h-8 w-8"
                             onClick={() => setIsOpen(false)}
+                            aria-label="Close chat"
                         >
                             <X className="h-5 w-5" />
                         </Button>
@@ -212,6 +295,7 @@ export function ChatInterface() {
                                 size="icon"
                                 className="rounded-full shrink-0"
                                 disabled={!inputValue.trim() || isTyping}
+                                aria-label="Send message"
                             >
                                 <Send className="h-4 w-4" />
                             </Button>

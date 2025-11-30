@@ -16,6 +16,11 @@ export async function GET(request: Request) {
             .eq('user_email', userEmail)
             .order('created_at', { ascending: false });
 
+        // If table doesn't exist, return empty array (optional feature)
+        if (error && error.code === 'PGRST205') {
+            return NextResponse.json({ connections: [] });
+        }
+
         if (error) throw error;
 
         return NextResponse.json({ connections: data || [] });

@@ -173,6 +173,7 @@ export function TransactionTable({
                                                                     variant="ghost"
                                                                     size="icon"
                                                                     className={`h-6 w-6 ml-1 hover:bg-muted-foreground/10 ${currentCategoryFilter !== 'all' ? 'text-primary bg-primary/10' : 'text-muted-foreground opacity-50 hover:opacity-100'}`}
+                                                                    aria-label="Filter by category"
                                                                 >
                                                                     <Filter className="h-3 w-3" />
                                                                 </Button>
@@ -210,6 +211,7 @@ export function TransactionTable({
                                                             variant="ghost"
                                                             size="icon"
                                                             className={`h-6 w-6 ml-1 hover:bg-muted-foreground/10 ${currentTypeFilter !== 'all' ? 'text-primary bg-primary/10' : 'text-muted-foreground opacity-50 hover:opacity-100'}`}
+                                                            aria-label="Filter by type"
                                                         >
                                                             <Filter className="h-3 w-3" />
                                                         </Button>
@@ -327,6 +329,7 @@ export function TransactionTable({
                                                                         setIsAddingCategory(false);
                                                                         setNewCategoryName('');
                                                                     }}
+                                                                    aria-label="Cancel adding category"
                                                                 >
                                                                     <X className="h-4 w-4" />
                                                                 </Button>
@@ -353,7 +356,7 @@ export function TransactionTable({
                                                         {isFirstColumn && (
                                                             <Popover>
                                                                 <PopoverTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity data-[state=open]:opacity-100">
+                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity data-[state=open]:opacity-100" aria-label="Add note">
                                                                         <FileText className={`h-3 w-3 ${session?.user?.email && getNote(session.user.email, t) ? 'text-primary fill-primary/20' : 'text-muted-foreground'}`} />
                                                                     </Button>
                                                                 </PopoverTrigger>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { parsePDF, parseCSV, parseExcel, parseDate } from '@/lib/parser';
 import { categorizeTransactions } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
 export const runtime = 'nodejs';
@@ -133,6 +134,50 @@ export async function POST(request: Request) {
 
         const buffer = Buffer.from(await file.arrayBuffer());
         console.log(`📤 Upload started: ${file.name} (${(file.size / 1024).toFixed(2)}KB)`);
+
+        // 0. Ensure Trial Started Record Exists
+        // We use a special payment record to track trial start permanently
+        try {
+            const adminSupabase = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.SUPABASE_SERVICE_ROLE_KEY!
+            );
+
+            const trialOrderId = `trial_${userEmail}`;
+
+            // Check if trial record exists
+            const { data: existingTrial } = await adminSupabase
+                .from('payments')
+                .select('id')
+                .eq('order_id', trialOrderId)
+                .single();
+
+            if (!existingTrial) {
+                // Fetch user ID for the email
+                // Note: In a real app, we should pass userId from frontend, but here we can try to find it or use a placeholder
+                // Since we don't have easy access to auth.users from here without admin API which might be restricted
+                // We'll try to use the user_id from the session if passed, or fallback to email as ID if allowed by schema (schema says user_id is TEXT)
+                // Let's try to get user by email if possible, or just use email as user_id for this special record
+
+                // Actually, let's just use the email as user_id for the trial record if we can't get the real ID.
+                // But wait, the payments table has user_id as TEXT.
+
+                await adminSupabase.from('payments').insert({
+                    order_id: trialOrderId,
+                    user_id: userEmail, // Fallback, ideally should be UUID but schema is TEXT
+                    email: userEmail,
+                    amount: 0,
+                    currency: 'INR',
+                    status: 'TRIAL_STARTED',
+                    payment_method: 'system',
+                    metadata: { type: 'trial_start', created_via: 'upload_api' }
+                });
+                console.log(`🆕 Trial started record created for ${userEmail}`);
+            }
+        } catch (e) {
+            console.warn('Failed to create trial record:', e);
+            // Don't block upload if this fails
+        }
 
         // 1. Fetch DB Rules (The Memory Bank)
         let dbKeywords: Record<string, string[]> = {};

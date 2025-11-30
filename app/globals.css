@@ -143,6 +143,12 @@
       -webkit-text-size-adjust: 100%;
     }
   }
+
+  /* Global cursor pointer for interactive elements */
+  button,
+  a {
+    cursor: pointer;
+  }
 }
 
 /* Utility classes for mobile responsiveness */

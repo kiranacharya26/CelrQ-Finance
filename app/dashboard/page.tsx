@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo, Suspense } from 'react';
+import { useState, useMemo, Suspense, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { parseDate } from '@/lib/parser';
 import { DateRange } from '@/types';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 // Lazy load heavy components
 const DashboardCharts = dynamic(() => import('@/components/DashboardCharts').then(mod => ({ default: mod.DashboardCharts })), {
@@ -194,13 +195,12 @@ function DashboardContent() {
 
     const netSavings = totalIncome - totalExpenses;
 
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
     const handleDeleteBankData = async () => {
-        if (!confirm(`Are you sure you want to delete all data for "${selectedBank === 'all' ? 'ALL BANKS' : selectedBank}"? This cannot be undone.`)) {
-            return;
-        }
+        // This function will now be called by the ConfirmDialog
         await deleteBank(selectedBank);
         setSelectedBank('all');
-        // Force a hard refresh to ensure all components and caches are cleared
         window.location.reload();
     };
 
@@ -212,31 +212,89 @@ function DashboardContent() {
         return <div className="flex items-center justify-center h-screen">Please sign in to view your dashboard.</div>;
     }
 
-    return (
-        <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6 max-w-full overflow-x-hidden">
-            {/* Header */}
-            {/* Header */}
-            <DashboardHeader
-                selectedBank={selectedBank}
-                onBankChange={setSelectedBank}
-                availableBanks={availableBanks}
-                selectedMonth={selectedMonth}
-                onMonthChange={setSelectedMonth}
-                months={months}
-                dateRange={dateRange}
-                onDateRangeChange={setDateRange}
-                onDeleteBankData={handleDeleteBankData}
-                onExportCSV={() => exportToCSV(filteredTransactions)}
-                onExportPDF={() => exportToPDF(filteredTransactions)}
-            />
+    const [trialInfo, setTrialInfo] = useState<{ isTrial: boolean; daysRemaining: number } | null>(null);
 
-            {/* Hero Stats */}
-            <div className="mb-4">
+    useEffect(() => {
+        const checkStatus = async () => {
+            if (userEmail) {
+                const res = await fetch(`/api/payment/status?email=${userEmail}`);
+                const data = await res.json();
+                if (data.isTrial) {
+                    setTrialInfo({ isTrial: true, daysRemaining: data.trialDaysRemaining });
+                }
+            }
+        };
+        checkStatus();
+    }, [userEmail]);
+
+    return (
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+            <ConfirmDialog
+                open={confirmDeleteOpen}
+                onOpenChange={setConfirmDeleteOpen}
+                title="Delete Bank Data"
+                description={`Are you sure you want to delete all data for "${selectedBank === 'all' ? 'ALL BANKS' : selectedBank}"? This cannot be undone.`}
+                onConfirm={handleDeleteBankData}
+                confirmText="Delete Data"
+                variant="destructive"
+            />
+            {trialInfo && (
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 rounded-xl shadow-lg mb-6 relative overflow-hidden">
+                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm">
+                                <span className="text-2xl">⏳</span>
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg">Free Trial Active</h3>
+                                <p className="text-indigo-100">
+                                    You have <span className="font-bold text-white">{trialInfo.daysRemaining} days</span> remaining in your premium trial.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4 w-full md:w-auto">
+                            <div className="hidden md:block w-32 h-2 bg-black/20 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-white/90 rounded-full transition-all duration-500"
+                                    style={{ width: `${(trialInfo.daysRemaining / 7) * 100}%` }}
+                                />
+                            </div>
+                            <button
+                                onClick={() => router.push('/settings')}
+                                className="w-full md:w-auto bg-white text-indigo-600 px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-indigo-50 transition-colors shadow-sm"
+                            >
+                                Upgrade Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Header Section */}
+            <div className="space-y-4">
+                <DashboardHeader
+                    selectedBank={selectedBank}
+                    onBankChange={setSelectedBank}
+                    availableBanks={availableBanks}
+                    selectedMonth={selectedMonth}
+                    onMonthChange={setSelectedMonth}
+                    months={months}
+                    dateRange={dateRange}
+                    onDateRangeChange={setDateRange}
+                    onDeleteBankData={() => setConfirmDeleteOpen(true)}
+                    onExportCSV={() => exportToCSV(filteredTransactions)}
+                    onExportPDF={() => exportToPDF(filteredTransactions)}
+                />
+            </div>
+
+            {/* Viewing Context */}
+            <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-muted-foreground">
                     Viewing Data for <span className="text-foreground">{selectedMonth}</span>
                 </h2>
             </div>
 
+            {/* Hero Stats Cards */}
             <DashboardHero
                 transactions={filteredTransactions}
                 totalIncome={totalIncome}
@@ -244,54 +302,53 @@ function DashboardContent() {
                 netSavings={netSavings}
             />
 
-            {/* Main Content Grid */}
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-7 max-w-full">
-                {/* Charts Area - Takes up 4 columns on desktop, full width on mobile */}
-                <div className="lg:col-span-4 space-y-4 sm:space-y-6 min-w-0">
-                    <Suspense fallback={<div className="h-[300px] bg-muted animate-pulse rounded"></div>}>
-                        <DashboardCharts
-                            transactions={filteredTransactions}
-                            amountKey={amountKey}
-                            depositKey={depositKey}
-                            withdrawalKey={withdrawalKey}
-                            categoryKey={categoryKey}
-                            dateKey={dateKey}
-                        />
-                    </Suspense>
+            {/* Main Content - Strict Grid for Clean Blocks */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
-                        <SubscriptionTracker transactions={transactions} />
-                    </Suspense>
-
-                    <Suspense fallback={<div className="h-[400px] bg-muted animate-pulse rounded"></div>}>
-                        <SpendingForecast transactions={transactions} />
+                {/* Top Row: Charts (2/3) + Insights (1/3) */}
+                <div className="lg:col-span-2 h-[450px]">
+                    <Suspense fallback={<div className="h-full bg-muted animate-pulse rounded-xl"></div>}>
+                        <div className="h-full [&>div]:h-full">
+                            <DashboardCharts
+                                transactions={filteredTransactions}
+                                amountKey={amountKey}
+                                depositKey={depositKey}
+                                withdrawalKey={withdrawalKey}
+                                categoryKey={categoryKey}
+                                dateKey={dateKey}
+                            />
+                        </div>
                     </Suspense>
                 </div>
 
-                {/* Right Column */}
-                <div className="lg:col-span-3 space-y-4 sm:space-y-6 min-w-0">
-                    <BankConnections />
-                    <Suspense fallback={<div className="h-[300px] bg-muted animate-pulse rounded"></div>}>
-                        <AIInsights transactions={filteredTransactions} />
+                <div className="lg:col-span-1 h-[450px]">
+                    <Suspense fallback={<div className="h-full bg-muted animate-pulse rounded-xl"></div>}>
+                        <div className="h-full [&>div]:h-full overflow-hidden">
+                            <AIInsights transactions={filteredTransactions} />
+                        </div>
                     </Suspense>
-                    <Suspense fallback={<div className="h-[250px] bg-muted animate-pulse rounded"></div>}>
-                        <GoalTracker transactions={filteredTransactions} />
+                </div>
+
+                {/* Bottom Row: 3 Equal Columns */}
+                <div className="lg:col-span-1">
+                    <Suspense fallback={<div className="h-[300px] bg-muted animate-pulse rounded-xl"></div>}>
+                        <SpendingForecast transactions={filteredTransactions} />
                     </Suspense>
+                </div>
+
+                <div className="lg:col-span-1">
                     <BudgetManager
                         transactions={filteredTransactions}
                         currentMonth={selectedMonth === 'All Months' ? new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) : selectedMonth}
                     />
-                    <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
-                        <BudgetProgress transactions={filteredTransactions} selectedMonth={selectedMonth} />
-                    </Suspense>
-                    <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
-                        <SpendingInsights transactions={filteredTransactions} selectedMonth={selectedMonth} />
+                </div>
+
+                <div className="lg:col-span-1">
+                    <Suspense fallback={<div className="h-[250px] bg-muted animate-pulse rounded-xl"></div>}>
+                        <GoalTracker transactions={filteredTransactions} />
                     </Suspense>
                 </div>
             </div>
-
-            {/* Transaction Table Section Removed */}
-
         </div>
     );
 }
