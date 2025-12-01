@@ -38,7 +38,7 @@ export function DashboardCharts({
     );
 
     return (
-        <div className="space-y-4 sm:space-y-6 md:space-y-8 w-full">
+        <div className="space-y-3 w-full">
             {/* Spending by Category */}
             <SpendingByCategory categoryData={categoryData} />
 
@@ -47,7 +47,7 @@ export function DashboardCharts({
 
             {/* Monthly Expenses with filter */}
             <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 w-full overflow-hidden">
-                <CardHeader className="px-4 sm:px-6">
+                <CardHeader className="px-3 py-3">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <CardTitle className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
                             <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500 flex-shrink-0" />
@@ -61,7 +61,7 @@ export function DashboardCharts({
                         />
                     </div>
                 </CardHeader>
-                <CardContent className="px-0 sm:px-2 md:px-6 w-full">
+                <CardContent className="px-3 pb-3 pt-0 w-full">
                     <MonthlyExpenses monthlyData={monthlyData} />
                 </CardContent>
             </Card>

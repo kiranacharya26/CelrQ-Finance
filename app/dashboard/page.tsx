@@ -6,9 +6,11 @@ import { parseDate } from '@/lib/parser';
 import { DateRange } from '@/types';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
+import { DashboardSkeleton, ChartSkeleton, InsightSkeleton, StatsSkeleton } from '@/components/LoadingSkeletons';
+
 // Lazy load heavy components
 const DashboardCharts = dynamic(() => import('@/components/DashboardCharts').then(mod => ({ default: mod.DashboardCharts })), {
-    loading: () => <div className="h-[300px] bg-muted animate-pulse rounded"></div>,
+    loading: () => <ChartSkeleton />,
     ssr: false,
 });
 
@@ -21,7 +23,7 @@ const SpendingInsights = dynamic(() => import('@/components/SpendingInsights').t
 });
 
 const AIInsights = dynamic(() => import('@/components/AIInsights').then(mod => ({ default: mod.AIInsights })), {
-    loading: () => <div className="h-[300px] bg-muted animate-pulse rounded"></div>,
+    loading: () => <InsightSkeleton />,
     ssr: false,
 });
 
@@ -197,21 +199,6 @@ function DashboardContent() {
 
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
-    const handleDeleteBankData = async () => {
-        // This function will now be called by the ConfirmDialog
-        await deleteBank(selectedBank);
-        setSelectedBank('all');
-        window.location.reload();
-    };
-
-    if (loading) {
-        return <div className="flex items-center justify-center h-screen" role="status" aria-live="polite">Loading...</div>;
-    }
-
-    if (!isAuthenticated) {
-        return <div className="flex items-center justify-center h-screen">Please sign in to view your dashboard.</div>;
-    }
-
     const [trialInfo, setTrialInfo] = useState<{ isTrial: boolean; daysRemaining: number } | null>(null);
 
     useEffect(() => {
@@ -227,8 +214,23 @@ function DashboardContent() {
         checkStatus();
     }, [userEmail]);
 
+    const handleDeleteBankData = async () => {
+        // This function will now be called by the ConfirmDialog
+        await deleteBank(selectedBank);
+        setSelectedBank('all');
+        window.location.reload();
+    };
+
+    if (loading) {
+        return <DashboardSkeleton />;
+    }
+
+    if (!isAuthenticated) {
+        return <div className="flex items-center justify-center h-screen">Please sign in to view your dashboard.</div>;
+    }
+
     return (
-        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex-1 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-3">
             <ConfirmDialog
                 open={confirmDeleteOpen}
                 onOpenChange={setConfirmDeleteOpen}
@@ -238,40 +240,30 @@ function DashboardContent() {
                 confirmText="Delete Data"
                 variant="destructive"
             />
+
+            {/* Compact Trial Banner */}
             {trialInfo && (
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 rounded-xl shadow-lg mb-6 relative overflow-hidden">
-                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm">
-                                <span className="text-2xl">⏳</span>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-lg">Free Trial Active</h3>
-                                <p className="text-indigo-100">
-                                    You have <span className="font-bold text-white">{trialInfo.daysRemaining} days</span> remaining in your premium trial.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4 w-full md:w-auto">
-                            <div className="hidden md:block w-32 h-2 bg-black/20 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-white/90 rounded-full transition-all duration-500"
-                                    style={{ width: `${(trialInfo.daysRemaining / 7) * 100}%` }}
-                                />
-                            </div>
-                            <button
-                                onClick={() => router.push('/settings')}
-                                className="w-full md:w-auto bg-white text-indigo-600 px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-indigo-50 transition-colors shadow-sm"
-                            >
-                                Upgrade Now
-                            </button>
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2.5 rounded-lg mb-2 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <span className="text-lg">⏳</span>
+                        <div className="text-sm">
+                            <span className="font-semibold">{trialInfo.daysRemaining} days</span> trial remaining
                         </div>
                     </div>
+                    <button
+                        onClick={() => router.push('/settings')}
+                        className="bg-white text-indigo-600 px-4 py-1.5 rounded-md font-semibold text-xs hover:bg-indigo-50 transition-colors"
+                    >
+                        Upgrade
+                    </button>
                 </div>
             )}
 
-            {/* Header Section */}
-            <div className="space-y-4">
+            {/* Compact Header with inline controls */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                <h1 className="text-xl font-bold">
+                    Dashboard <span className="text-sm font-normal text-muted-foreground ml-2">{selectedMonth}</span>
+                </h1>
                 <DashboardHeader
                     selectedBank={selectedBank}
                     onBankChange={setSelectedBank}
@@ -287,65 +279,58 @@ function DashboardContent() {
                 />
             </div>
 
-            {/* Viewing Context */}
-            <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-muted-foreground">
-                    Viewing Data for <span className="text-foreground">{selectedMonth}</span>
-                </h2>
+            {/* Hero Stats Cards - More Compact */}
+            <div className="mb-2">
+                <DashboardHero
+                    transactions={filteredTransactions}
+                    totalIncome={totalIncome}
+                    totalExpenses={totalExpenses}
+                    netSavings={netSavings}
+                />
             </div>
 
-            {/* Hero Stats Cards */}
-            <DashboardHero
-                transactions={filteredTransactions}
-                totalIncome={totalIncome}
-                totalExpenses={totalExpenses}
-                netSavings={netSavings}
-            />
-
-            {/* Main Content - Strict Grid for Clean Blocks */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                {/* Top Row: Charts (2/3) + Insights (1/3) */}
-                <div className="lg:col-span-2 h-[450px]">
-                    <Suspense fallback={<div className="h-full bg-muted animate-pulse rounded-xl"></div>}>
-                        <div className="h-full [&>div]:h-full">
-                            <DashboardCharts
-                                transactions={filteredTransactions}
-                                amountKey={amountKey}
-                                depositKey={depositKey}
-                                withdrawalKey={withdrawalKey}
-                                categoryKey={categoryKey}
-                                dateKey={dateKey}
-                            />
-                        </div>
+            {/* Masonry Layout - No gaps, content-driven sizing */}
+            <div className="dashboard-masonry">
+                {/* Charts */}
+                <div className="masonry-item">
+                    <Suspense fallback={<ChartSkeleton />}>
+                        <DashboardCharts
+                            transactions={filteredTransactions}
+                            amountKey={amountKey}
+                            depositKey={depositKey}
+                            withdrawalKey={withdrawalKey}
+                            categoryKey={categoryKey}
+                            dateKey={dateKey}
+                        />
                     </Suspense>
                 </div>
 
-                <div className="lg:col-span-1 h-[450px]">
-                    <Suspense fallback={<div className="h-full bg-muted animate-pulse rounded-xl"></div>}>
-                        <div className="h-full [&>div]:h-full overflow-hidden">
-                            <AIInsights transactions={filteredTransactions} />
-                        </div>
+                {/* AI Insights */}
+                <div className="masonry-item">
+                    <Suspense fallback={<InsightSkeleton />}>
+                        <AIInsights transactions={filteredTransactions} />
                     </Suspense>
                 </div>
 
-                {/* Bottom Row: 3 Equal Columns */}
-                <div className="lg:col-span-1">
-                    <Suspense fallback={<div className="h-[300px] bg-muted animate-pulse rounded-xl"></div>}>
-                        <SpendingForecast transactions={filteredTransactions} />
-                    </Suspense>
-                </div>
-
-                <div className="lg:col-span-1">
+                {/* Budget Manager */}
+                <div className="masonry-item">
                     <BudgetManager
                         transactions={filteredTransactions}
                         currentMonth={selectedMonth === 'All Months' ? new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) : selectedMonth}
                     />
                 </div>
 
-                <div className="lg:col-span-1">
-                    <Suspense fallback={<div className="h-[250px] bg-muted animate-pulse rounded-xl"></div>}>
+                {/* Goal Tracker */}
+                <div className="masonry-item">
+                    <Suspense fallback={<div className="bg-muted animate-pulse rounded-xl h-64"></div>}>
                         <GoalTracker transactions={filteredTransactions} />
+                    </Suspense>
+                </div>
+
+                {/* Spending Forecast */}
+                <div className="masonry-item">
+                    <Suspense fallback={<div className="bg-muted animate-pulse rounded-xl h-64"></div>}>
+                        <SpendingForecast transactions={filteredTransactions} />
                     </Suspense>
                 </div>
             </div>
@@ -355,7 +340,7 @@ function DashboardContent() {
 
 export default function DashboardPage() {
     return (
-        <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading dashboard...</div>}>
+        <Suspense fallback={<DashboardSkeleton />}>
             <DashboardContent />
         </Suspense>
     );

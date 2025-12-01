@@ -100,16 +100,16 @@ export function DashboardHero({ transactions, totalIncome, totalExpenses, netSav
     }, [transactions, totalIncome, totalExpenses]);
 
     return (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 w-full">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 w-full">
             {/* Net Savings */}
             <Card className="w-full overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3">
                     <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                         <span className="truncate">Net Savings</span>
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 sm:px-6">
+                <CardContent className="px-3 pb-3">
                     <div className={`text-xl sm:text-2xl font-bold truncate ${netSavings >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         ₹{netSavings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
@@ -121,13 +121,13 @@ export function DashboardHero({ transactions, totalIncome, totalExpenses, netSav
 
             {/* Income */}
             <Card className="w-full overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3">
                     <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">
                         <DollarSign className="h-4 w-4 text-green-500 flex-shrink-0" />
                         <span className="truncate">Total Income</span>
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 sm:px-6">
+                <CardContent className="px-3 pb-3">
                     <div className="text-xl sm:text-2xl font-bold text-green-600 truncate">
                         ₹{totalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
@@ -146,13 +146,13 @@ export function DashboardHero({ transactions, totalIncome, totalExpenses, netSav
 
             {/* Expenses */}
             <Card className="w-full overflow-hidden min-w-0">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3">
                     <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">
                         <CreditCard className="h-4 w-4 text-red-500 flex-shrink-0" />
                         <span className="truncate">Total Expenses</span>
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 sm:px-6">
+                <CardContent className="px-3 pb-3">
                     <div className="text-xl sm:text-2xl font-bold text-red-600 truncate">
                         ₹{totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
@@ -164,13 +164,13 @@ export function DashboardHero({ transactions, totalIncome, totalExpenses, netSav
 
             {/* Top Insight */}
             <Card className="w-full overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3">
                     <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">
                         <Activity className="h-4 w-4 text-blue-500 flex-shrink-0" />
                         <span className="truncate">Top Spending</span>
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 sm:px-6">
+                <CardContent className="px-3 pb-3">
                     {stats?.topCategory ? (
                         <>
                             <div className="text-xl sm:text-2xl font-bold truncate">

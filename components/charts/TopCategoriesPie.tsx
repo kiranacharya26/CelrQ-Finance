@@ -18,14 +18,14 @@ export function TopCategoriesPie({ categoryData }: TopCategoriesPieProps) {
 
     return (
         <Card className="lg:col-span-3 shadow-sm hover:shadow-md transition-shadow duration-200 w-full overflow-hidden">
-            <CardHeader className="px-4 sm:px-6">
+            <CardHeader className="px-3 py-3">
                 <CardTitle className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
                     <PieChartIcon className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500 flex-shrink-0" />
                     <span className="truncate">Top Categories</span>
                 </CardTitle>
             </CardHeader>
-            <CardContent className="px-2 sm:px-2 md:px-6 w-full">
-                <div className="h-[280px] sm:h-[320px] md:h-[350px] w-full flex items-center justify-center">
+            <CardContent className="px-3 pb-3 pt-0 w-full">
+                <div className="h-[300px] w-full flex items-center justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie
@@ -48,7 +48,7 @@ export function TopCategoriesPie({ categoryData }: TopCategoriesPieProps) {
                     </ResponsiveContainer>
                 </div>
                 {/* Legend */}
-                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                     {pieData.map((entry, index) => (
                         <div key={index} className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />

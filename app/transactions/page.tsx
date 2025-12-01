@@ -14,17 +14,11 @@ import { TransactionStats } from '@/components/transactions/TransactionStats';
 import { TransactionFilters } from '@/components/transactions/TransactionFilters';
 import { DateRange } from '@/types';
 
+import { TransactionsSkeleton, TableSkeleton, StatsSkeleton } from '@/components/LoadingSkeletons';
+
 // Lazy load TransactionTable for better performance
 const TransactionTable = dynamic(() => import('@/components/TransactionTable').then(mod => ({ default: mod.TransactionTable })), {
-    loading: () => (
-        <Card className="p-6">
-            <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="h-16 bg-muted animate-pulse rounded"></div>
-                ))}
-            </div>
-        </Card>
-    ),
+    loading: () => <TableSkeleton />,
     ssr: false,
 });
 
@@ -147,7 +141,7 @@ function TransactionsContent() {
         filters.dateRange.to !== null;
 
     if (loading) {
-        return <div className="flex items-center justify-center h-screen" role="status" aria-live="polite">Loading...</div>;
+        return <TransactionsSkeleton />;
     }
 
     if (!isAuthenticated) {
@@ -155,8 +149,7 @@ function TransactionsContent() {
     }
 
     return (
-        <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
-            {/* Header */}
+        <div className="flex-1 space-y-4 sm:space-y-6 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 pt-4 sm:pt-6">
             {/* Header */}
             <TransactionsHeader
                 selectedBank={selectedBank}
@@ -170,7 +163,6 @@ function TransactionsContent() {
             />
 
             {/* Stats Cards */}
-            {/* Stats Cards */}
             <TransactionStats
                 totalExpenses={totalExpenses}
                 totalIncome={totalIncome}
@@ -178,8 +170,6 @@ function TransactionsContent() {
                 averageTransaction={averageTransaction}
             />
 
-            {/* Filters */}
-            {/* Filters */}
             {/* Filters */}
             <TransactionFilters
                 searchQuery={filters.searchQuery}
@@ -197,15 +187,7 @@ function TransactionsContent() {
             />
 
             {/* Transaction Table */}
-            <Suspense fallback={
-                <Card className="p-6">
-                    <div className="space-y-4">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                            <div key={i} className="h-16 bg-muted animate-pulse rounded"></div>
-                        ))}
-                    </div>
-                </Card>
-            }>
+            <Suspense fallback={<TableSkeleton />}>
                 <TransactionTable
                     transactions={filteredTransactions}
                     onCategoryChange={handleCategoryChange}
@@ -222,7 +204,7 @@ function TransactionsContent() {
 
 export default function TransactionsPage() {
     return (
-        <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading transactions...</div>}>
+        <Suspense fallback={<TransactionsSkeleton />}>
             <TransactionsContent />
         </Suspense>
     );

@@ -1,45 +1,109 @@
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+
+export function ChartSkeleton() {
+    return (
+        <Card className="h-full w-full overflow-hidden">
+            <CardHeader className="space-y-2">
+                <Skeleton className="h-5 w-[140px]" />
+            </CardHeader>
+            <CardContent>
+                <div className="h-[300px] w-full flex items-end gap-2">
+                    {[45, 78, 32, 65, 89, 54, 72].map((height, i) => (
+                        <Skeleton key={i} className="w-full" style={{ height: `${height}%` }} />
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+export function StatsSkeleton() {
+    return (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 w-full">
+            {[1, 2, 3, 4].map((i) => (
+                <Card key={i} className="w-full overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <Skeleton className="h-4 w-[100px]" />
+                        <Skeleton className="h-4 w-4 rounded-full" />
+                    </CardHeader>
+                    <CardContent>
+                        <Skeleton className="h-8 w-[120px] mb-2" />
+                        <Skeleton className="h-3 w-[80px]" />
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+    );
+}
+
+export function InsightSkeleton() {
+    return (
+        <Card className="h-full w-full overflow-hidden">
+            <CardHeader>
+                <Skeleton className="h-6 w-[140px]" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-[90%]" />
+                </div>
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-[95%]" />
+                    <Skeleton className="h-4 w-[85%]" />
+                </div>
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-[80%]" />
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+export function TableSkeleton() {
+    return (
+        <Card className="w-full overflow-hidden">
+            <CardHeader>
+                <Skeleton className="h-6 w-[150px]" />
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <Skeleton className="h-9 w-[250px]" />
+                        <div className="flex gap-2">
+                            <Skeleton className="h-9 w-[100px]" />
+                            <Skeleton className="h-9 w-[100px]" />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                            <Skeleton key={i} className="h-12 w-full" />
+                        ))}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 export function DashboardSkeleton() {
     return (
-        <div className="flex-1 space-y-6 p-8 pt-6 animate-pulse">
-            {/* Header Skeleton */}
-            <div className="flex items-center justify-between">
-                <div className="h-9 w-48 bg-muted rounded"></div>
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+            <div className="flex items-center justify-between space-y-2">
+                <Skeleton className="h-8 w-[200px]" />
                 <div className="flex items-center space-x-2">
-                    <div className="h-10 w-[180px] bg-muted rounded"></div>
-                    <div className="h-10 w-[200px] bg-muted rounded"></div>
-                    <div className="h-10 w-10 bg-muted rounded"></div>
+                    <Skeleton className="h-9 w-[100px]" />
+                    <Skeleton className="h-9 w-[100px]" />
                 </div>
             </div>
-
-            {/* Hero Stats Skeleton */}
-            <div className="grid gap-4 md:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                    <Card key={i} className="p-6">
-                        <div className="space-y-2">
-                            <div className="h-4 w-24 bg-muted rounded"></div>
-                            <div className="h-8 w-32 bg-muted rounded"></div>
-                            <div className="h-3 w-20 bg-muted rounded"></div>
-                        </div>
-                    </Card>
-                ))}
-            </div>
-
-            {/* Charts Skeleton */}
-            <div className="grid gap-6 md:grid-cols-7">
-                <div className="md:col-span-4 space-y-6">
-                    <Card className="p-6">
-                        <div className="h-[300px] bg-muted rounded"></div>
-                    </Card>
+            <StatsSkeleton />
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-7">
+                <div className="col-span-4">
+                    <ChartSkeleton />
                 </div>
-                <div className="md:col-span-3 space-y-6">
-                    <Card className="p-6">
-                        <div className="h-[200px] bg-muted rounded"></div>
-                    </Card>
-                    <Card className="p-6">
-                        <div className="h-[200px] bg-muted rounded"></div>
-                    </Card>
+                <div className="col-span-3">
+                    <InsightSkeleton />
                 </div>
             </div>
         </div>
@@ -48,43 +112,15 @@ export function DashboardSkeleton() {
 
 export function TransactionsSkeleton() {
     return (
-        <div className="flex-1 space-y-6 p-8 pt-6 animate-pulse">
-            {/* Header Skeleton */}
-            <div className="flex items-center justify-between">
-                <div className="h-9 w-48 bg-muted rounded"></div>
+        <div className="flex-1 space-y-4 p-8 pt-6">
+            <div className="flex items-center justify-between space-y-2">
+                <Skeleton className="h-8 w-[200px]" />
                 <div className="flex items-center space-x-2">
-                    <div className="h-10 w-[180px] bg-muted rounded"></div>
-                    <div className="h-10 w-[200px] bg-muted rounded"></div>
+                    <Skeleton className="h-9 w-[100px]" />
                 </div>
             </div>
-
-            {/* Stats Cards Skeleton */}
-            <div className="grid gap-4 md:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                    <Card key={i} className="p-6">
-                        <div className="space-y-2">
-                            <div className="h-4 w-24 bg-muted rounded"></div>
-                            <div className="h-8 w-32 bg-muted rounded"></div>
-                        </div>
-                    </Card>
-                ))}
-            </div>
-
-            {/* Filters Skeleton */}
-            <div className="flex flex-wrap items-center gap-2">
-                {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-10 w-[180px] bg-muted rounded"></div>
-                ))}
-            </div>
-
-            {/* Table Skeleton */}
-            <Card className="p-6">
-                <div className="space-y-4">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className="h-16 bg-muted rounded"></div>
-                    ))}
-                </div>
-            </Card>
+            <StatsSkeleton />
+            <TableSkeleton />
         </div>
     );
 }

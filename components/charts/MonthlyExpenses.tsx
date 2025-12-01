@@ -14,7 +14,7 @@ export function MonthlyExpenses({ monthlyData }: MonthlyExpensesProps) {
         .sort((a, b) => new Date(a.name).getTime() - new Date(b.name).getTime());
 
     return (
-        <div className="h-[280px] sm:h-[320px] md:h-[350px] w-full">
+        <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                     <XAxis

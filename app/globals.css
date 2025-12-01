@@ -169,4 +169,40 @@
   .scrollbar-gutter {
     scrollbar-gutter: stable;
   }
+
+  /* Masonry Layout - Pinterest-style with no gaps */
+  .dashboard-masonry {
+    column-count: 1;
+    column-gap: 1rem;
+    /* 16px gap between columns */
+    width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .dashboard-masonry {
+      column-count: 2;
+      column-gap: 1rem;
+      /* 16px gap on tablet */
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .dashboard-masonry {
+      column-count: 3;
+      column-gap: 1rem;
+      /* 16px gap on desktop */
+    }
+  }
+
+  .masonry-item {
+    break-inside: avoid;
+    /* Prevent cards from breaking across columns */
+    page-break-inside: avoid;
+    /* Fallback for older browsers */
+    margin-bottom: 0.75rem;
+    /* 12px gap between cards vertically */
+    display: inline-block;
+    /* Ensures proper column flow */
+    width: 100%;
+  }
 }
