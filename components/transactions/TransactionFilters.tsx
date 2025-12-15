@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input";
 import {
@@ -40,26 +42,47 @@ export function TransactionFilters({
     hasActiveFilters,
     onClearFilters
 }: TransactionFiltersProps) {
+    const [localSearch, setLocalSearch] = useState(searchQuery);
+
+    // Debounce search updates
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localSearch !== searchQuery) {
+                onSearchChange(localSearch);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [localSearch, onSearchChange, searchQuery]);
+
+    // Sync local state when prop changes (e.g. clear filters)
+    useEffect(() => {
+        setLocalSearch(searchQuery);
+    }, [searchQuery]);
+
     return (
         <div className="space-y-4" role="search" aria-label="Transaction filters">
             {/* Search Bar - Full width */}
             <div className="relative w-full">
                 <Input
                     placeholder="Search transactions..."
-                    value={searchQuery}
-                    onChange={(e) => onSearchChange(e.target.value)}
+                    value={localSearch}
+                    onChange={(e) => setLocalSearch(e.target.value)}
                     aria-label="Search transactions"
                     className="w-full pl-10"
                 />
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     <Filter className="h-4 w-4" />
                 </div>
-                {searchQuery && (
+                {localSearch && (
                     <Button
                         variant="ghost"
                         size="sm"
                         className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                        onClick={() => onSearchChange('')}
+                        onClick={() => {
+                            setLocalSearch('');
+                            onSearchChange('');
+                        }}
                         aria-label="Clear search"
                     >
                         <X className="h-4 w-4" />

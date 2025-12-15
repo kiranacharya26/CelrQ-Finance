@@ -157,7 +157,13 @@ export async function categorizeTransactions(rawInput: string | any[], learnedKe
         .map((t, i) => (t.category === 'Other' ? i : -1))
         .filter(i => i !== -1);
 
+    const categorizedCount = results.length - uncategorizedIndices.length;
+    if (categorizedCount > 0) {
+        console.log(`✅ Locally categorized ${categorizedCount}/${results.length} transactions using learned rules.`);
+    }
+
     if (uncategorizedIndices.length === 0 || !openai) {
+        console.log("🎉 All transactions categorized locally! Zero AI cost.");
         return { results, newlyLearnedKeywords: {} };
     }
 

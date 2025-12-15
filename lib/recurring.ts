@@ -22,10 +22,32 @@ export function detectRecurringTransactions(transactions: Transaction[]): Set<nu
 
     if (!descKey || !dateKey) return new Set();
 
+    // List of known subscription services to flag even if they appear only once
+    const KNOWN_SUBSCRIPTIONS = [
+        'netflix', 'spotify', 'apple', 'prime', 'amazon prime', 'youtube', 'google one',
+        'hotstar', 'disney+', 'hulu', 'hbo', 'aws', 'azure', 'digitalocean', 'vercel',
+        'netlify', 'heroku', 'github', 'gitlab', 'jetbrains', 'adobe', 'figma', 'canva',
+        'notion', 'linear', 'slack', 'zoom', 'discord', 'chatgpt', 'openai', 'anthropic',
+        'midjourney', 'cursor', 'copilot', 'tinder', 'bumble', 'hinge', 'linkedin',
+        'x premium', 'twitter', 'medium', 'substack', 'patreon', 'onlyfans', 'twitch',
+        'dropbox', 'box', 'icloud', 'onedrive', 'proton', 'expressvpn', 'nordvpn',
+        'surfshark', 'hostinger', 'godaddy', 'namecheap', 'bluehost', 'squarespace',
+        'wix', 'wordpress', 'shopify', 'mailchimp', 'convertkit', 'beehiiv', 'ghost'
+    ];
+
+    // Check for known subscriptions first
+    transactions.forEach((t, index) => {
+        const desc = String(t[descKey] || '').toLowerCase().trim();
+        if (KNOWN_SUBSCRIPTIONS.some(sub => desc.includes(sub))) {
+            recurringIndices.add(index);
+        }
+    });
+
     // Group transactions by similar descriptions
     const groups: Map<string, number[]> = new Map();
 
     transactions.forEach((t, index) => {
+        // ... (existing grouping logic)
         const desc = String(t[descKey] || '').toLowerCase().trim();
         if (!desc) return;
 
@@ -55,8 +77,12 @@ export function detectRecurringTransactions(transactions: Transaction[]): Set<nu
 
     // Analyze each group for recurring patterns
     for (const [desc, indices] of groups.entries()) {
+        // Skip if already identified as known subscription
+        if (indices.some(idx => recurringIndices.has(idx))) continue;
+
         if (indices.length < 2) continue;
 
+        // ... (rest of the existing logic)
         // Get transactions in this group
         const groupTransactions = indices.map(i => transactions[i]);
 

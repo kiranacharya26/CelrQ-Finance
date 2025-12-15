@@ -150,7 +150,7 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
             </Card>
 
             {/* Category Cards Grid */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1">
                 {budgets.map(budget => {
                     const spent = categorySpending[budget.category] || 0;
                     const percentage = Math.min((spent / budget.amount) * 100, 100);

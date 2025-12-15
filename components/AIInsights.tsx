@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, TrendingDown, AlertTriangle, Lightbulb, Target, ArrowUp, ArrowDown, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Lightbulb, Target, ArrowUp, ArrowDown, Sparkles, Loader2 } from 'lucide-react';
 import { Transaction } from '@/types';
 import { generateInsights } from '@/lib/insights';
 
@@ -13,19 +13,66 @@ interface AIInsightsProps {
 
 export function AIInsights({ transactions }: AIInsightsProps) {
     const [activeTab, setActiveTab] = useState('trends');
+    const [aiSummary, setAiSummary] = useState<string | null>(null);
+    const [loadingAI, setLoadingAI] = useState(false);
 
     const insights = useMemo(() => {
         if (transactions.length === 0) return null;
         return generateInsights(transactions);
     }, [transactions]);
 
+    // Fetch AI summary when insights are available
+    useEffect(() => {
+        if (insights && insights.trends.currentTotal > 0) {
+            // Create a unique cache key based on spending totals
+            // This ensures we get fresh insights if the data changes
+            const cacheKey = `ai-summary-${Math.round(insights.trends.currentTotal)}-${Math.round(insights.trends.previousTotal)}`;
+
+            // Check if we have a cached summary
+            const cachedSummary = localStorage.getItem(cacheKey);
+            if (cachedSummary) {
+                setAiSummary(cachedSummary);
+                return;
+            }
+
+            // No cache hit - fetch from API
+            setLoadingAI(true);
+            fetch('/api/insights/ai-summary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ insights }),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.summary) {
+                        setAiSummary(data.summary);
+                        // Cache the summary
+                        localStorage.setItem(cacheKey, data.summary);
+
+                        // Clean up old cache entries (keep only last 10)
+                        const allKeys = Object.keys(localStorage).filter(k => k.startsWith('ai-summary-'));
+                        if (allKeys.length > 10) {
+                            allKeys.slice(0, allKeys.length - 10).forEach(k => localStorage.removeItem(k));
+                        }
+                    }
+                })
+                .catch(err => console.error('Failed to fetch AI summary:', err))
+                .finally(() => setLoadingAI(false));
+        }
+    }, [insights]);
+
     if (!insights || transactions.length === 0) {
         return (
-            <Card className="w-full h-full border-dashed shadow-none bg-transparent">
-                <CardContent className="flex flex-col items-center justify-center h-full p-6 text-center space-y-2">
-                    <Sparkles className="h-8 w-8 text-muted-foreground/30" />
-                    <p className="text-sm text-muted-foreground font-medium">
-                        Insights await your data
+            <Card className="w-full overflow-hidden">
+                <CardHeader className="px-4 sm:px-6">
+                    <CardTitle className="flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 flex-shrink-0" />
+                        <span className="truncate text-base sm:text-lg">Smart Insights</span>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6">
+                    <p className="text-sm text-muted-foreground">
+                        Upload transactions to see AI-powered insights
                     </p>
                 </CardContent>
             </Card>
@@ -35,179 +82,218 @@ export function AIInsights({ transactions }: AIInsightsProps) {
     const { trends, alerts, predictions, recommendations } = insights;
 
     return (
-        <Card className="w-full h-full shadow-sm">
-            <CardHeader className="px-3 py-2 border-b">
-                <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-base font-medium">
-                        <Sparkles className="h-4 w-4 text-indigo-500" />
-                        <span>Insights</span>
-                    </CardTitle>
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
-                        <TabsList className="h-7 bg-transparent p-0 gap-4">
-                            <TabsTrigger
-                                value="trends"
-                                className="h-7 px-0 bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-indigo-600 data-[state=active]:font-semibold text-muted-foreground border-b-2 border-transparent data-[state=active]:border-indigo-600 rounded-none transition-none"
-                            >
-                                Trends
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="alerts"
-                                className="h-7 px-0 bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-indigo-600 data-[state=active]:font-semibold text-muted-foreground border-b-2 border-transparent data-[state=active]:border-indigo-600 rounded-none transition-none"
-                            >
-                                Alerts
-                                {alerts.length > 0 && (
-                                    <span className="ml-1.5 flex h-1.5 w-1.5 rounded-full bg-red-500" />
-                                )}
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="tips"
-                                className="h-7 px-0 bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-indigo-600 data-[state=active]:font-semibold text-muted-foreground border-b-2 border-transparent data-[state=active]:border-indigo-600 rounded-none transition-none"
-                            >
-                                Tips
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                </div>
+        <Card className="w-full overflow-hidden min-w-0">
+            <CardHeader className="px-4 sm:px-6">
+                <CardTitle className="flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 flex-shrink-0" />
+                    <span className="truncate text-base sm:text-lg">Smart Insights</span>
+                </CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-                <div className="max-h-[400px] overflow-y-auto custom-scrollbar p-3">
+            <CardContent className="px-4 sm:px-6">
+                {/* AI Summary Section */}
+                {(aiSummary || loadingAI) && (
+                    <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950 rounded-lg border border-purple-200 dark:border-purple-800">
+                        <div className="flex items-start gap-3">
+                            <Sparkles className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-semibold text-purple-900 dark:text-purple-100 mb-2">AI Summary</h4>
+                                {loadingAI ? (
+                                    <div className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <span>Analyzing your spending patterns...</span>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-purple-800 dark:text-purple-200 leading-relaxed">
+                                        {aiSummary}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="trends">Trends</TabsTrigger>
+                        <TabsTrigger value="alerts">
+                            Alerts
+                            {alerts.length > 0 && (
+                                <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-500 text-[10px] text-white">
+                                    {alerts.length}
+                                </span>
+                            )}
+                        </TabsTrigger>
+                        <TabsTrigger value="tips">Tips</TabsTrigger>
+                    </TabsList>
+
                     {/* Trends Tab */}
-                    {activeTab === 'trends' && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            {/* Spending Overview */}
+                    <TabsContent value="trends" className="space-y-4 mt-4">
+                        {/* Spending Comparison */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                {trends.percentageChange >= 0 ? (
+                                    <TrendingUp className="h-4 w-4 text-red-500" />
+                                ) : (
+                                    <TrendingDown className="h-4 w-4 text-green-500" />
+                                )}
+                                <h4 className="text-sm font-semibold">
+                                    {predictions.daysRemaining > 0 ? 'Spending This Month' : 'Total Spending'}
+                                </h4>
+                            </div>
                             <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">This Month</p>
-                                <div className="flex items-baseline justify-between">
-                                    <span className="text-2xl font-bold tracking-tight">
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold">
                                         ₹{trends.currentTotal.toLocaleString('en-IN')}
                                     </span>
                                     {trends.previousTotal > 0 && (
-                                        <div className={`flex items-center gap-1 text-sm font-medium ${trends.percentageChange >= 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                                            {trends.percentageChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                            <span>{Math.abs(trends.percentageChange).toFixed(1)}%</span>
+                                        <span className={`text-sm font-medium ${trends.percentageChange >= 0 ? 'text-red-500' : 'text-green-500'
+                                            }`}>
+                                            {trends.percentageChange >= 0 ? '+' : ''}
+                                            {trends.percentageChange.toFixed(1)}%
+                                        </span>
+                                    )}
+                                </div>
+                                {trends.previousTotal > 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                        vs ₹{trends.previousTotal.toLocaleString('en-IN')} previous month
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Top Categories */}
+                        {trends.topCategories.length > 0 && (
+                            <div className="space-y-2">
+                                <h4 className="text-sm font-semibold">Top Spending</h4>
+                                <div className="space-y-2">
+                                    {trends.topCategories.map((cat, idx) => (
+                                        <div key={cat.category} className="flex items-center justify-between text-sm">
+                                            <span className="flex items-center gap-2">
+                                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium">
+                                                    {idx + 1}
+                                                </span>
+                                                <span className="text-muted-foreground">{cat.category}</span>
+                                            </span>
+                                            <span className="font-medium">₹{cat.amount.toLocaleString('en-IN')}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Biggest Changes */}
+                        {(trends.biggestIncrease || trends.biggestDecrease) && (
+                            <div className="space-y-2">
+                                <h4 className="text-sm font-semibold">Notable Changes</h4>
+                                <div className="space-y-2">
+                                    {trends.biggestIncrease && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <ArrowUp className="h-4 w-4 text-red-500" />
+                                            <span className="text-muted-foreground">{trends.biggestIncrease.category}</span>
+                                            <span className="ml-auto font-medium text-red-500">
+                                                +{trends.biggestIncrease.change.toFixed(0)}%
+                                            </span>
+                                        </div>
+                                    )}
+                                    {trends.biggestDecrease && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <ArrowDown className="h-4 w-4 text-green-500" />
+                                            <span className="text-muted-foreground">{trends.biggestDecrease.category}</span>
+                                            <span className="ml-auto font-medium text-green-500">
+                                                {trends.biggestDecrease.change.toFixed(0)}%
+                                            </span>
                                         </div>
                                     )}
                                 </div>
                             </div>
+                        )}
 
-                            {/* Top Categories Compact List */}
-                            {trends.topCategories.length > 0 && (
-                                <div className="space-y-3">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Top Spending</p>
-                                    <div className="space-y-2">
-                                        {trends.topCategories.slice(0, 3).map((cat, idx) => (
-                                            <div key={cat.category} className="group flex items-center justify-between text-sm py-1">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-1 h-8 rounded-full bg-slate-100 dark:bg-slate-800 group-hover:bg-indigo-500 transition-colors" />
-                                                    <span className="font-medium text-slate-700 dark:text-slate-300">{cat.category}</span>
-                                                </div>
-                                                <span className="font-semibold text-slate-900 dark:text-slate-100">₹{cat.amount.toLocaleString('en-IN')}</span>
-                                            </div>
-                                        ))}
-                                    </div>
+                        {/* Prediction - Only show for current/future months */}
+                        {predictions.daysRemaining > 0 && (
+                            <div className="space-y-2 border-t pt-3">
+                                <div className="flex items-center gap-2">
+                                    <Target className="h-4 w-4 text-blue-500" />
+                                    <h4 className="text-sm font-semibold">End of Month Forecast</h4>
                                 </div>
-                            )}
-
-                            {/* Notable Changes */}
-                            {(trends.biggestIncrease || trends.biggestDecrease) && (
-                                <div className="space-y-3">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Movers</p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {trends.biggestIncrease && (
-                                            <div className="bg-red-50/50 dark:bg-red-900/10 rounded-lg p-3 border border-red-100 dark:border-red-900/20">
-                                                <div className="flex items-center gap-1.5 text-red-600 mb-1">
-                                                    <ArrowUp className="h-3 w-3" />
-                                                    <span className="text-xs font-bold">Up</span>
-                                                </div>
-                                                <p className="text-xs font-medium truncate">{trends.biggestIncrease.category}</p>
-                                                <p className="text-xs text-red-600 font-semibold mt-0.5">+{trends.biggestIncrease.change.toFixed(0)}%</p>
-                                            </div>
-                                        )}
-                                        {trends.biggestDecrease && (
-                                            <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg p-3 border border-emerald-100 dark:border-emerald-900/20">
-                                                <div className="flex items-center gap-1.5 text-emerald-600 mb-1">
-                                                    <ArrowDown className="h-3 w-3" />
-                                                    <span className="text-xs font-bold">Down</span>
-                                                </div>
-                                                <p className="text-xs font-medium truncate">{trends.biggestDecrease.category}</p>
-                                                <p className="text-xs text-emerald-600 font-semibold mt-0.5">{trends.biggestDecrease.change.toFixed(0)}%</p>
-                                            </div>
-                                        )}
+                                <div className="space-y-1">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-lg font-bold">
+                                            ₹{predictions.projectedTotal.toLocaleString('en-IN')}
+                                        </span>
+                                        <span className={`text-xs font-medium ${predictions.onTrack ? 'text-green-500' : 'text-yellow-500'
+                                            }`}>
+                                            {predictions.onTrack ? 'On track' : 'Off track'}
+                                        </span>
                                     </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {predictions.daysRemaining} days remaining • {predictions.projectedChange >= 0 ? '+' : ''}
+                                        {predictions.projectedChange.toFixed(1)}% vs last month
+                                    </p>
                                 </div>
-                            )}
-
-                            {/* Forecast Minimal */}
-                            <div className="pt-2 border-t border-border/40">
-                                <div className="flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-1.5">
-                                        <Target className="h-3 w-3 text-indigo-500" />
-                                        <span className="text-xs font-medium text-muted-foreground">Forecast</span>
-                                    </div>
-                                    <span className={`text-xs font-medium ${predictions.onTrack ? 'text-emerald-500' : 'text-amber-500'}`}>
-                                        {predictions.onTrack ? 'On Track' : 'Over Budget'}
-                                    </span>
-                                </div>
-                                <p className="text-sm font-bold">₹{predictions.projectedTotal.toLocaleString('en-IN')}</p>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </TabsContent>
 
                     {/* Alerts Tab */}
-                    {activeTab === 'alerts' && (
-                        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            {alerts.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-40 text-center">
-                                    <div className="h-8 w-8 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-3">
-                                        <Sparkles className="h-4 w-4 text-emerald-500" />
+                    <TabsContent value="alerts" className="space-y-3 mt-4">
+                        {alerts.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-8 text-center">
+                                <AlertTriangle className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                                <p className="text-sm text-muted-foreground">No unusual activity detected</p>
+                                <p className="text-xs text-muted-foreground">Your spending looks normal</p>
+                            </div>
+                        ) : (
+                            alerts.map((alert, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`flex gap-3 rounded-lg border p-3 ${alert.type === 'warning'
+                                        ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950'
+                                        : 'border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950'
+                                        }`}
+                                >
+                                    <AlertTriangle
+                                        className={`h-4 w-4 mt-0.5 flex-shrink-0 ${alert.type === 'warning' ? 'text-yellow-600' : 'text-blue-600'
+                                            }`}
+                                    />
+                                    <div className="flex-1 space-y-1">
+                                        <p className="text-sm font-medium">{alert.message}</p>
+                                        {alert.category && (
+                                            <p className="text-xs text-muted-foreground">Category: {alert.category}</p>
+                                        )}
                                     </div>
-                                    <p className="text-sm font-medium text-muted-foreground">All clear</p>
                                 </div>
-                            ) : (
-                                alerts.map((alert, idx) => (
-                                    <div key={idx} className="flex gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
-                                        <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${alert.type === 'warning' ? 'text-amber-500' : 'text-blue-500'}`} />
-                                        <div className="space-y-0.5">
-                                            <p className="text-sm font-medium leading-tight">{alert.message}</p>
-                                            {alert.category && (
-                                                <p className="text-xs text-muted-foreground">{alert.category}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    )}
+                            ))
+                        )}
+                    </TabsContent>
 
                     {/* Tips Tab */}
-                    {activeTab === 'tips' && (
-                        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            {recommendations.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-40 text-center">
-                                    <div className="h-8 w-8 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-3">
-                                        <Lightbulb className="h-4 w-4 text-indigo-500" />
+                    <TabsContent value="tips" className="space-y-3 mt-4">
+                        {recommendations.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-8 text-center">
+                                <Lightbulb className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                                <p className="text-sm text-muted-foreground">No recommendations yet</p>
+                                <p className="text-xs text-muted-foreground">Keep tracking to get personalized tips</p>
+                            </div>
+                        ) : (
+                            recommendations.map((rec, idx) => (
+                                <div
+                                    key={idx}
+                                    className="flex gap-3 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-900 dark:bg-green-950"
+                                >
+                                    <Lightbulb className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-600" />
+                                    <div className="flex-1 space-y-1">
+                                        <p className="text-sm font-medium">{rec.message}</p>
+                                        {rec.potentialSavings && (
+                                            <p className="text-xs font-semibold text-green-600">
+                                                Potential savings: ₹{rec.potentialSavings.toLocaleString('en-IN')}
+                                            </p>
+                                        )}
                                     </div>
-                                    <p className="text-sm font-medium text-muted-foreground">Gathering insights...</p>
                                 </div>
-                            ) : (
-                                recommendations.map((rec, idx) => (
-                                    <div key={idx} className="group relative overflow-hidden rounded-lg border border-indigo-100 dark:border-indigo-900/30 bg-white dark:bg-slate-900 p-4 transition-all hover:shadow-sm">
-                                        <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
-                                        <div className="space-y-1 pl-2">
-                                            <p className="text-sm font-medium leading-snug">{rec.message}</p>
-                                            {rec.potentialSavings && (
-                                                <p className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                                                    <Sparkles className="h-3 w-3" />
-                                                    Save ₹{rec.potentialSavings.toLocaleString('en-IN')}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    )}
-                </div>
+                            ))
+                        )}
+                    </TabsContent>
+                </Tabs>
             </CardContent>
         </Card>
     );

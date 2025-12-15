@@ -23,10 +23,11 @@ interface TransactionsHeaderProps {
     onBankChange: (value: string) => void;
     availableBanks: string[];
     monthParam: string | null;
-    dateRange: DateRange;
-    onDateRangeChange: (range: DateRange) => void;
     onExportCSV: () => void;
     onExportPDF: () => void;
+    months: string[];
+    selectedMonth: string;
+    onMonthChange: (month: string) => void;
 }
 
 export function TransactionsHeader({
@@ -34,10 +35,11 @@ export function TransactionsHeader({
     onBankChange,
     availableBanks,
     monthParam,
-    dateRange,
-    onDateRangeChange,
     onExportCSV,
-    onExportPDF
+    onExportPDF,
+    months,
+    selectedMonth,
+    onMonthChange
 }: TransactionsHeaderProps) {
     return (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -60,57 +62,21 @@ export function TransactionsHeader({
                     </SelectContent>
                 </Select>
 
-                {/* Month Range Selector */}
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal">
-                            <Filter className="mr-2 h-4 w-4" />
-                            <span className="hidden sm:inline">
-                                {dateRange.from && dateRange.to
-                                    ? `${dateRange.from.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })} - ${dateRange.to.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`
-                                    : 'Month Range'}
-                            </span>
-                            <span className="sm:hidden">Range</span>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-64">
-                        <div className="p-3 space-y-3">
-                            <div className="space-y-2">
-                                <label className="text-xs font-medium text-muted-foreground">From Month</label>
-                                <Input
-                                    type="month"
-                                    onChange={(e) => {
-                                        const date = e.target.value ? new Date(e.target.value + '-01') : null;
-                                        onDateRangeChange({ ...dateRange, from: date });
-                                    }}
-                                    className="h-9"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-medium text-muted-foreground">To Month</label>
-                                <Input
-                                    type="month"
-                                    onChange={(e) => {
-                                        const date = e.target.value ? new Date(e.target.value + '-01') : null;
-                                        onDateRangeChange({ ...dateRange, to: date });
-                                    }}
-                                    className="h-9"
-                                />
-                            </div>
-                            {(dateRange.from || dateRange.to) && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => onDateRangeChange({ from: null, to: null })}
-                                    className="w-full"
-                                >
-                                    <X className="h-4 w-4 mr-2" />
-                                    Clear Range
-                                </Button>
-                            )}
-                        </div>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {/* Month Selector */}
+                <Select
+                    value={selectedMonth}
+                    onValueChange={onMonthChange}
+                >
+                    <SelectTrigger className="w-full sm:w-[140px]" aria-label="Select month">
+                        <SelectValue placeholder="Select Month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="All Months">All Months</SelectItem>
+                        {months.map(month => (
+                            <SelectItem key={month} value={month}>{month}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
 
                 {/* Export Menu */}
                 <DropdownMenu>

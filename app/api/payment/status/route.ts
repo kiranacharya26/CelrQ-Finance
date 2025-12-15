@@ -128,7 +128,25 @@ export async function GET(req: Request) {
                     hasPaid = false; // Deny access
                 }
             } else {
-                // No trial record and no uploads -> Brand new user -> Grant access (Pre-trial/Day 1)
+                // No trial record and no uploads -> Brand new user -> Start Trial
+                console.log("Starting new trial for user:", email);
+
+                // Record trial start
+                const { error: insertError } = await supabase.from('payments').insert({
+                    email: email,
+                    user_id: userId || null,
+                    status: 'TRIAL_STARTED',
+                    order_id: `trial_${email}`,
+                    amount: 0,
+                    created_at: new Date().toISOString()
+                });
+
+                if (insertError) {
+                    console.error("Failed to start trial:", insertError);
+                    // If table missing or other error, we still allow access for now to avoid blocking new users
+                    // but we warn.
+                }
+
                 isTrial = true;
                 trialDaysRemaining = 7;
                 hasPaid = true;

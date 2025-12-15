@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { Transaction } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useSession } from 'next-auth/react';
@@ -127,8 +127,16 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const value = useMemo(() => ({
+        transactions,
+        availableBanks,
+        loading,
+        refresh,
+        deleteBank
+    }), [transactions, availableBanks, loading, refresh]);
+
     return (
-        <TransactionsContext.Provider value={{ transactions, availableBanks, loading, refresh, deleteBank }}>
+        <TransactionsContext.Provider value={value}>
             {children}
         </TransactionsContext.Provider>
     );

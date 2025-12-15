@@ -160,131 +160,48 @@ export function BankConnections() {
     }
 
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <Building2 className="h-5 w-5" />
-                            Connected Banks
-                        </CardTitle>
-                        <CardDescription>Auto-sync transactions from your bank accounts</CardDescription>
+        <Card className="relative overflow-hidden border-dashed border-2">
+            {/* Coming Soon Overlay */}
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[2px]">
+                <div className="bg-background/80 p-6 rounded-xl shadow-lg border text-center max-w-sm mx-4">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 mb-4">
+                        <Clock className="h-6 w-6" />
                     </div>
-                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="sm">
-                                <Plus className="h-4 w-4 mr-2" />
-                                Connect Bank
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Connect Bank Account</DialogTitle>
-                                <DialogDescription>
-                                    Link your bank account for automatic transaction sync
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="bank">Bank Name</Label>
-                                    <Select value={formData.bank_name} onValueChange={(val) => setFormData({ ...formData, bank_name: val })}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select your bank" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {INDIAN_BANKS.map(bank => (
-                                                <SelectItem key={bank} value={bank}>{bank}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="account">Account Number</Label>
-                                    <Input
-                                        id="account"
-                                        type="password"
-                                        placeholder="Enter account number"
-                                        value={formData.account_number}
-                                        onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-                                    />
-                                    <p className="text-xs text-muted-foreground">We'll only store the last 4 digits</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="type">Account Type</Label>
-                                    <Select value={formData.account_type} onValueChange={(val) => setFormData({ ...formData, account_type: val })}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="savings">Savings Account</SelectItem>
-                                            <SelectItem value="current">Current Account</SelectItem>
-                                            <SelectItem value="credit_card">Credit Card</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                    <p className="text-xs text-blue-800">
-                                        🔒 <strong>Secure Connection:</strong> We use bank-grade encryption. Your credentials are never stored.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-2">
-                                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                                <Button onClick={handleConnect}>Connect</Button>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
+                    <h3 className="text-lg font-bold mb-2">Coming Soon</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                        We're working on direct bank integration to auto-sync your transactions securely.
+                    </p>
+                    <Button variant="outline" className="gap-2" disabled>
+                        Notify Me When Ready
+                    </Button>
                 </div>
-            </CardHeader>
-            <CardContent>
-                {connections.length === 0 ? (
+            </div>
+
+            {/* Blurred Content */}
+            <div className="opacity-50 pointer-events-none select-none filter blur-[1px]">
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <Building2 className="h-5 w-5" />
+                                Connected Banks
+                            </CardTitle>
+                            <CardDescription>Auto-sync transactions from your bank accounts</CardDescription>
+                        </div>
+                        <Button size="sm">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Connect Bank
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
                     <div className="text-center py-8 text-muted-foreground">
                         <Building2 className="h-12 w-12 mx-auto mb-3 opacity-20" />
                         <p>No banks connected yet</p>
                         <p className="text-sm mt-1">Connect your bank to auto-sync transactions</p>
                     </div>
-                ) : (
-                    <div className="space-y-3">
-                        {connections.map((conn) => (
-                            <div key={conn.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    {getStatusIcon(conn.connection_status)}
-                                    <div>
-                                        <p className="font-medium">{conn.bank_name}</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            •••• {conn.account_number_masked} • {conn.account_type}
-                                        </p>
-                                        {conn.last_synced_at && (
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                Last synced: {new Date(conn.last_synced_at).toLocaleString()}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {getStatusBadge(conn.connection_status)}
-                                    {conn.connection_status === 'active' && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleSync(conn.id)}
-                                        >
-                                            <RefreshCw className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleDisconnect(conn.id)}
-                                    >
-                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </CardContent>
+                </CardContent>
+            </div>
         </Card>
     );
 }

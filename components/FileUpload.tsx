@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone'; // I need to install this!
-import { Upload, File, X, Loader2, Building2 } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
+import { Upload, File as FileIcon, X, Loader2, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -31,9 +31,13 @@ export function FileUpload({ onUpload }: FileUploadProps) {
         return ['HDFC Bank', 'ICICI Bank'];
     });
 
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [editedFileName, setEditedFileName] = useState('');
+
     const onDrop = useCallback((acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) {
             setFile(acceptedFiles[0]);
+            setEditedFileName(acceptedFiles[0].name);
         }
     }, []);
 
@@ -91,6 +95,15 @@ export function FileUpload({ onUpload }: FileUploadProps) {
     const removeFile = () => {
         setFile(null);
         setProgress(0);
+    };
+
+    const handleRenameFile = () => {
+        if (file && editedFileName.trim()) {
+            // Create a new file with the updated name
+            const renamedFile = new File([file], editedFileName.trim(), { type: file.type });
+            setFile(renamedFile);
+            setIsEditingName(false);
+        }
     };
 
     return (
@@ -186,21 +199,48 @@ export function FileUpload({ onUpload }: FileUploadProps) {
                 <Card>
                     <CardContent className="p-6 space-y-4">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-md bg-primary/10">
-                                    <File className="h-6 w-6 text-primary" />
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="p-2 rounded-md bg-primary/10 shrink-0">
+                                    <FileIcon className="h-6 w-6 text-primary" />
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-sm font-medium truncate max-w-[200px]">
-                                        {file.name}
-                                    </p>
+                                <div className="space-y-1 flex-1 min-w-0">
+                                    {isEditingName ? (
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                value={editedFileName}
+                                                onChange={(e) => setEditedFileName(e.target.value)}
+                                                onBlur={handleRenameFile}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleRenameFile()}
+                                                className="h-7 text-sm"
+                                                autoFocus
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2 group">
+                                            <p
+                                                className="text-sm font-medium truncate max-w-[200px] cursor-pointer hover:underline decoration-dashed underline-offset-4"
+                                                onClick={() => !isUploading && setIsEditingName(true)}
+                                                title="Click to rename"
+                                            >
+                                                {file.name}
+                                            </p>
+                                            {!isUploading && (
+                                                <button
+                                                    onClick={() => setIsEditingName(true)}
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                     <p className="text-xs text-muted-foreground">
                                         {(file.size / 1024 / 1024).toFixed(2)} MB • {selectedBank}
                                     </p>
                                 </div>
                             </div>
                             {!isUploading && (
-                                <Button variant="ghost" size="icon" onClick={removeFile} aria-label="Remove file">
+                                <Button variant="ghost" size="icon" onClick={removeFile} aria-label="Remove file" className="shrink-0 ml-2">
                                     <X className="h-4 w-4" />
                                 </Button>
                             )}

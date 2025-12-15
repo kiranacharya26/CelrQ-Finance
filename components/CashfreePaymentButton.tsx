@@ -12,9 +12,10 @@ interface Props {
         phone?: string;
     };
     returnUrl?: string;
+    planType?: 'monthly' | 'yearly';
 }
 
-export default function CashfreePaymentButton({ amount, receiptId, customer, returnUrl }: Props) {
+export default function CashfreePaymentButton({ amount, receiptId, customer, returnUrl, planType = 'monthly' }: Props) {
     const [loading, setLoading] = useState(false);
 
     const handlePay = async () => {
@@ -24,7 +25,7 @@ export default function CashfreePaymentButton({ amount, receiptId, customer, ret
             const res = await fetch("/api/payment/create-order", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ amount, receiptId, customer, returnUrl }),
+                body: JSON.stringify({ amount, receiptId, customer, returnUrl, planType }),
             });
 
             const contentType = res.headers.get("content-type");

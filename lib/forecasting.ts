@@ -219,7 +219,7 @@ function generateAlerts(forecasts: CategoryForecast[], monthlyData: Record<strin
 function calculateMonthlyTrend(monthlyData: Record<string, Transaction[]>): { month: string; spending: number }[] {
     const months = Object.keys(monthlyData).sort().slice(-6); // Last 6 months
 
-    return months.map(monthKey => {
+    const result = months.map(monthKey => {
         const [year, month] = monthKey.split('-');
         const date = new Date(parseInt(year), parseInt(month) - 1);
         const monthName = date.toLocaleString('default', { month: 'short', year: 'numeric' });
@@ -231,4 +231,6 @@ function calculateMonthlyTrend(monthlyData: Record<string, Transaction[]>): { mo
             spending: Math.round(spending)
         };
     });
+
+    return result;
 }

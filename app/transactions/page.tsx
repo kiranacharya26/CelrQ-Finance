@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, Suspense, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Card } from '@/components/ui/card';
 import { exportToCSV, exportToPDF } from '@/lib/export';
@@ -25,7 +25,6 @@ const TransactionTable = dynamic(() => import('@/components/TransactionTable').t
 function TransactionsContent() {
     const { userEmail, isAuthenticated } = useAuth();
     const [selectedBank, setSelectedBank] = useState<string>('all');
-    const [dateRange, setLocalDateRange] = useState<DateRange>({ from: null, to: null });
 
     const { transactions, availableBanks, loading, refresh } = useTransactions({
         userEmail,
@@ -40,16 +39,9 @@ function TransactionsContent() {
         setTagFilter,
         setTypeFilter,
         setSortBy,
-        setDateRange: setFilterDateRange,
         setMonthFilter,
         clearFilters,
     } = useTransactionFilters(transactions);
-
-    // Update both local and filter state
-    const handleDateRangeChange = (range: DateRange) => {
-        setLocalDateRange(range);
-        setFilterDateRange(range);
-    };
 
     // Sync with URL params
     const searchParams = useSearchParams();
@@ -140,6 +132,36 @@ function TransactionsContent() {
         filters.dateRange.from !== null ||
         filters.dateRange.to !== null;
 
+    const router = useRouter();
+
+    // Calculate unique months
+    const months = useMemo(() => {
+        const uniqueMonths = new Set<string>();
+        transactions.forEach(t => {
+            const dateKey = Object.keys(t).find(k => /^date$/i.test(k));
+            if (dateKey && t[dateKey]) {
+                const date = new Date(t[dateKey]);
+                if (!isNaN(date.getTime())) {
+                    const monthStr = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                    uniqueMonths.add(monthStr);
+                }
+            }
+        });
+        return Array.from(uniqueMonths).sort((a, b) => {
+            return new Date(b).getTime() - new Date(a).getTime();
+        });
+    }, [transactions]);
+
+    const handleMonthChange = (month: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (month === 'All Months') {
+            params.delete('month');
+        } else {
+            params.set('month', month);
+        }
+        router.push(`?${params.toString()}`);
+    };
+
     if (loading) {
         return <TransactionsSkeleton />;
     }
@@ -149,17 +171,18 @@ function TransactionsContent() {
     }
 
     return (
-        <div className="flex-1 space-y-4 sm:space-y-6 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 pt-4 sm:pt-6">
+        <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6 max-w-7xl mx-auto w-full">
             {/* Header */}
             <TransactionsHeader
                 selectedBank={selectedBank}
                 onBankChange={setSelectedBank}
                 availableBanks={availableBanks}
                 monthParam={monthParam}
-                dateRange={dateRange}
-                onDateRangeChange={handleDateRangeChange}
                 onExportCSV={() => exportToCSV(filteredTransactions)}
                 onExportPDF={() => exportToPDF(filteredTransactions)}
+                months={months}
+                selectedMonth={monthParam || 'All Months'}
+                onMonthChange={handleMonthChange}
             />
 
             {/* Stats Cards */}

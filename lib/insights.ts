@@ -147,16 +147,18 @@ export function detectAnomalies(
 ): Alert[] {
     const alerts: Alert[] = [];
 
+    // Parse current month to get previous months
+    const [year, month] = currentMonth.split('-').map(Number);
+    const months: string[] = [currentMonth];
+
     // Get last 3 months for comparison
-    const currentDate = new Date();
-    const months: string[] = [];
-    for (let i = 0; i < 4; i++) {
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+    for (let i = 1; i < 4; i++) {
+        const date = new Date(year, month - 1 - i, 1);
         months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
     }
 
-    const transactionsByMonth = months.map(month =>
-        transactions.filter(t => getMonthYear(t.Date || t.date || '') === month)
+    const transactionsByMonth = months.map(m =>
+        transactions.filter(t => getMonthYear(t.Date || t.date || '') === m)
     );
 
     const currentTransactions = transactionsByMonth[0];
@@ -229,14 +231,20 @@ export function generatePredictions(
     transactions: Transaction[],
     currentMonth: string
 ): Prediction {
-    const currentDate = new Date();
-    const currentDay = currentDate.getDate();
-    const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-    const daysRemaining = daysInMonth - currentDay;
+    // Parse the month string (format: YYYY-MM)
+    const [year, month] = currentMonth.split('-').map(Number);
+    const monthDate = new Date(year, month - 1, 1);
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    // For historical months, use the full month; for current month, use actual days elapsed
+    const today = new Date();
+    const isCurrentMonth = year === today.getFullYear() && month === today.getMonth() + 1;
+    const daysElapsed = isCurrentMonth ? today.getDate() : daysInMonth;
+    const daysRemaining = isCurrentMonth ? daysInMonth - today.getDate() : 0;
 
     const currentTransactions = transactions.filter(t => {
-        const month = getMonthYear(t.Date || t.date || '');
-        return month === currentMonth;
+        const txMonth = getMonthYear(t.Date || t.date || '');
+        return txMonth === currentMonth;
     });
 
     let currentTotal = 0;
@@ -245,16 +253,16 @@ export function generatePredictions(
         currentTotal += amount;
     });
 
-    const dailyAverage = currentTotal / currentDay;
-    const projectedTotal = dailyAverage * daysInMonth;
+    const dailyAverage = daysElapsed > 0 ? currentTotal / daysElapsed : 0;
+    const projectedTotal = isCurrentMonth ? dailyAverage * daysInMonth : currentTotal;
 
     // Get previous month total for comparison
-    const previousDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    const previousDate = new Date(year, month - 2, 1);
     const previousMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}`;
 
     const previousTransactions = transactions.filter(t => {
-        const month = getMonthYear(t.Date || t.date || '');
-        return month === previousMonth;
+        const txMonth = getMonthYear(t.Date || t.date || '');
+        return txMonth === previousMonth;
     });
 
     let previousTotal = 0;
@@ -280,12 +288,11 @@ export function generatePredictions(
 // Generate recommendations
 export function generateRecommendations(
     transactions: Transaction[],
-    insights: Partial<Insights>
+    insights: Partial<Insights>,
+    currentMonth: string
 ): Recommendation[] {
     const recommendations: Recommendation[] = [];
 
-    // Check for high dining/food delivery spending
-    const currentMonth = new Date().toISOString().slice(0, 7);
     const currentTransactions = transactions.filter(t => {
         const month = getMonthYear(t.Date || t.date || '');
         return month === currentMonth;
@@ -337,10 +344,37 @@ export function generateRecommendations(
 
 // Main function to generate all insights
 export function generateInsights(transactions: Transaction[]): Insights {
-    const currentDate = new Date();
-    const currentMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-    const previousDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-    const previousMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}`;
+    if (transactions.length === 0) {
+        return {
+            trends: {
+                currentTotal: 0,
+                previousTotal: 0,
+                percentageChange: 0,
+                topCategories: [],
+                biggestIncrease: null,
+                biggestDecrease: null,
+            },
+            alerts: [],
+            predictions: {
+                projectedTotal: 0,
+                daysRemaining: 0,
+                onTrack: true,
+                projectedChange: 0,
+            },
+            recommendations: [],
+        };
+    }
+
+    // Find the most recent month in the transactions
+    const monthsInData = new Set<string>();
+    transactions.forEach(t => {
+        const month = getMonthYear(t.Date || t.date || '');
+        if (month) monthsInData.add(month);
+    });
+
+    const sortedMonths = Array.from(monthsInData).sort().reverse();
+    const currentMonth = sortedMonths[0] || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const previousMonth = sortedMonths[1] || currentMonth;
 
     const trends = analyzeSpendingTrends(transactions, currentMonth, previousMonth);
     const alerts = detectAnomalies(transactions, currentMonth);
@@ -353,7 +387,7 @@ export function generateInsights(transactions: Transaction[]): Insights {
         recommendations: [],
     };
 
-    insights.recommendations = generateRecommendations(transactions, insights);
+    insights.recommendations = generateRecommendations(transactions, insights, currentMonth);
 
     return insights;
 }

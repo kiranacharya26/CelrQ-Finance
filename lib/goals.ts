@@ -231,6 +231,11 @@ export async function saveGoal(userEmail: string, goal: Omit<Goal, 'id' | 'creat
 
 // Get all goals
 export async function getGoals(userEmail: string, includeCompleted = true): Promise<Goal[]> {
+    if (!userEmail) {
+        console.warn('getGoals called with empty userEmail');
+        return [];
+    }
+
     let query = supabase
         .from('goals')
         .select('*')
@@ -243,7 +248,12 @@ export async function getGoals(userEmail: string, includeCompleted = true): Prom
     const { data, error } = await query;
 
     if (error) {
-        console.error('Error fetching goals:', error);
+        console.error('Error fetching goals:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+        });
         return [];
     }
 
@@ -267,7 +277,14 @@ export async function updateGoal(userEmail: string, goalId: string, updates: Par
         .eq('id', goalId)
         .eq('user_email', userEmail);
 
-    if (error) console.error('Error updating goal:', error);
+    if (error) {
+        console.error('Error updating goal:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+        });
+    }
 }
 
 // Delete goal
@@ -278,7 +295,14 @@ export async function deleteGoal(userEmail: string, goalId: string): Promise<voi
         .eq('id', goalId)
         .eq('user_email', userEmail);
 
-    if (error) console.error('Error deleting goal:', error);
+    if (error) {
+        console.error('Error deleting goal:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+        });
+    }
 }
 
 // Mark goal as complete

@@ -4,6 +4,7 @@ import { categorizeTransactions } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+import MD5 from 'crypto-js/md5';
 
 export const runtime = 'nodejs';
 
@@ -69,7 +70,7 @@ const sanitizeTransaction = (raw: any, userEmail: string, bankName: string, uplo
 };
 
 // Helper to upsert transactions
-const storeTransactions = async (transactions: any[], userEmail: string, bankName: string, fileName: string) => {
+const storeTransactions = async (transactions: any[], userEmail: string, bankName: string, fileName: string, fileHash: string) => {
     // 1. Create Upload Record
     const uploadId = randomUUID();
 
@@ -80,6 +81,7 @@ const storeTransactions = async (transactions: any[], userEmail: string, bankNam
             id: uploadId,
             user_email: userEmail,
             file_name: fileName,
+            file_hash: fileHash, // Save the hash!
             bank_name: bankName,
             transaction_count: transactions.length,
             status: 'completed'
@@ -134,6 +136,44 @@ export async function POST(request: Request) {
 
         const buffer = Buffer.from(await file.arrayBuffer());
         console.log(`📤 Upload started: ${file.name} (${(file.size / 1024).toFixed(2)}KB)`);
+
+        // Calculate MD5 hash of the file content
+        const fileHash = MD5(buffer.toString('binary')).toString();
+        console.log(`🔐 File Hash: ${fileHash}`);
+
+        // --- RESUME CHECK: Check if this file content was already uploaded successfully ---
+        try {
+            const { data: existingUpload } = await supabase
+                .from('uploads')
+                .select('id, status')
+                .eq('user_email', userEmail)
+                .eq('file_hash', fileHash) // Check by HASH, not name
+                .eq('status', 'completed')
+                .single();
+
+            if (existingUpload) {
+                console.log(`♻️  Duplicate content detected (ID: ${existingUpload.id}). Resuming from DB...`);
+
+                // Fetch existing transactions for this upload
+                const { data: existingTransactions } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .eq('upload_id', existingUpload.id);
+
+                if (existingTransactions && existingTransactions.length > 0) {
+                    console.log(`✅ Returned ${existingTransactions.length} existing transactions. Zero processing cost.`);
+                    return NextResponse.json({
+                        transactions: existingTransactions,
+                        newlyLearnedKeywords: {},
+                        message: "File content already uploaded. Returned existing data."
+                    });
+                }
+            }
+        } catch (e) {
+            // Ignore error if check fails, proceed to normal upload
+            console.warn("Resume check failed, proceeding with fresh upload:", e);
+        }
+        // -----------------------------------------------------------------------
 
         // 0. Ensure Trial Started Record Exists
         // We use a special payment record to track trial start permanently
@@ -249,7 +289,7 @@ export async function POST(request: Request) {
             console.timeEnd('🤖 AI categorization');
 
             await saveNewRules(newlyLearnedKeywords);
-            await storeTransactions(transactions, userEmail, bankName, file.name);
+            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash);
             return NextResponse.json({ transactions, newlyLearnedKeywords });
         }
 
@@ -272,7 +312,7 @@ export async function POST(request: Request) {
                 merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
             }));
 
-            await storeTransactions(transactions, userEmail, bankName, file.name);
+            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash);
             return NextResponse.json({ transactions, newlyLearnedKeywords });
         }
 
@@ -299,7 +339,7 @@ export async function POST(request: Request) {
                 merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
             }));
 
-            await storeTransactions(transactions, userEmail, bankName, file.name);
+            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash);
             return NextResponse.json({ transactions, newlyLearnedKeywords });
         }
 

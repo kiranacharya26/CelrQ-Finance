@@ -46,58 +46,14 @@ export async function POST(req: Request) {
 
         // 1. Fetch order details to get customer_id (user_id)
         let orderData;
-        let cashfreeVerificationFailed = false;
 
         try {
             const orderResponse = await (Cashfree as any).PGOrderFetch("2023-08-01", orderId);
             orderData = orderResponse.data;
             console.log("✅ Cashfree Order Fetch Success:", JSON.stringify(orderData, null, 2));
         } catch (cfError: any) {
-            cashfreeVerificationFailed = true;
             console.error("❌ Cashfree PGOrderFetch failed:", cfError?.response?.data || cfError.message);
-
-            // In sandbox mode, if Cashfree API fails but we have the order_id from the return URL,
-            // we can accept it as a valid payment since we created the order ourselves
-            if (!isProduction) {
-                console.warn("⚠️  SANDBOX MODE: Cashfree verification failed, but accepting payment based on return URL");
-
-                // Create a minimal payment record for sandbox
-                const sandboxPaymentRecord = {
-                    order_id: orderId,
-                    status: "PAID",
-                    amount: 129.00, // Standard amount
-                    currency: "INR",
-                    user_id: customerEmail || "sandbox_user",
-                    email: customerEmail || null,
-                    payment_method: "SANDBOX_FALLBACK",
-                    metadata: {
-                        note: "Payment verified via return URL in sandbox mode (Cashfree API unavailable)",
-                        timestamp: new Date().toISOString()
-                    },
-                };
-
-                console.log("Saving sandbox payment record:", sandboxPaymentRecord);
-
-                const { data, error } = await supabase.from("payments").upsert(
-                    sandboxPaymentRecord,
-                    { onConflict: "order_id" }
-                ).select();
-
-                if (error) {
-                    console.error("Supabase update error:", error);
-                    return NextResponse.json({ error: "Database update failed: " + error.message }, { status: 500 });
-                }
-
-                console.log("✅ Sandbox payment saved successfully:", data);
-                return NextResponse.json({
-                    success: true,
-                    status: "PAID",
-                    sandbox: true,
-                    note: "Verified via return URL (sandbox mode)"
-                });
-            }
-
-            // In production, we must verify with Cashfree
+            // Strict verification: If we can't verify with Cashfree, we fail.
             return NextResponse.json({ error: "Failed to verify with payment gateway" }, { status: 502 });
         }
 

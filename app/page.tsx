@@ -17,6 +17,7 @@ export default function Home() {
   const [hasPaid, setHasPaid] = useState<boolean | null>(null);
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [trialExpired, setTrialExpired] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
   // Check payment status when session is available
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function Home() {
           const params = new URLSearchParams(window.location.search);
           const status = params.get('payment_status');
           const orderId = params.get('order_id');
+          const isUpgrade = params.get('upgrade') === 'true';
 
           // If we have an orderId, we should verify it with the server
           // regardless of what the URL param says (it might be unreplaced placeholders)
@@ -79,7 +81,8 @@ export default function Home() {
           }
 
           // If user has paid, redirect to dashboard
-          if (data.hasPaid) {
+          // BUT skip redirect if user explicitly wants to upgrade/pay
+          if (data.hasPaid && !isUpgrade) {
             router.push('/dashboard');
           }
         } catch (error) {
@@ -223,9 +226,9 @@ export default function Home() {
 
           {/* Sign In Button */}
           <div className="w-full max-w-md mx-auto flex justify-center">
-            <Button onClick={() => signIn('google')} size="lg" className="gap-2 px-8 py-6 text-lg">
+            <Button onClick={() => signIn('google')} size="lg" className="gap-2 px-8 py-6 text-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl">
               <LogIn className="h-5 w-5" />
-              Sign in with Google
+              Start 7-Day Free Trial with Google
             </Button>
           </div>
 
@@ -329,9 +332,10 @@ export default function Home() {
     );
   }
 
-  if (hasPaid === false) {
+  if (hasPaid === false || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('upgrade') === 'true')) {
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const paymentRequired = params?.get('payment_required') === 'true';
+    const isUpgrade = params?.get('upgrade') === 'true';
     const errorType = params?.get('error');
 
     return (
@@ -349,7 +353,7 @@ export default function Home() {
             </h1>
             <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
               {trialExpired
-                ? "Your 7-day free trial has ended. Continue using ClerQ for just ₹129/month!"
+                ? "Your 7-day free trial has ended. Continue using ClerQ for just ₹149/month!"
                 : (paymentRequired
                   ? "Payment required to access your dashboard and data."
                   : "AI-powered finance tracking that learns from your spending habits.")
@@ -359,7 +363,7 @@ export default function Home() {
               <div className="mx-auto max-w-[700px] p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <p className="text-sm text-amber-800 dark:text-amber-200">
                   ⏰ <strong>Trial Ended</strong> - You experienced the power of AI-driven finance tracking.
-                  Continue for just ₹129/month to keep your data and insights!
+                  Continue for just ₹149/month to keep your data and insights!
                 </p>
               </div>
             )}
@@ -382,17 +386,55 @@ export default function Home() {
 
           {/* Pricing Card */}
           <div className="max-w-md mx-auto w-full">
-            <div className="relative border-2 border-indigo-500 rounded-2xl p-8 bg-card shadow-2xl">
+            {/* Billing Toggle */}
+            <div className="flex justify-center mb-8">
+              <div className="bg-muted/50 p-1 rounded-full flex items-center relative">
+                <button
+                  onClick={() => setBillingCycle('monthly')}
+                  className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${billingCycle === 'monthly'
+                    ? 'bg-white dark:bg-gray-800 text-indigo-600 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setBillingCycle('yearly')}
+                  className={`px-6 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${billingCycle === 'yearly'
+                    ? 'bg-white dark:bg-gray-800 text-indigo-600 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                  Yearly
+                  <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
+                    SAVE 16%
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="relative border-2 border-indigo-500 rounded-2xl p-8 bg-card shadow-2xl transition-all duration-300">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-indigo-600 text-white text-sm font-bold rounded-full">
-                7 DAYS FREE
+                {billingCycle === 'monthly' ? '7 DAYS FREE' : 'BEST VALUE'}
               </div>
 
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold mb-2">Monthly Plan</h3>
+                <h3 className="text-2xl font-bold mb-2">
+                  {billingCycle === 'monthly' ? 'Monthly Plan' : 'Yearly Plan'}
+                </h3>
                 <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-5xl font-bold">₹129</span>
-                  <span className="text-muted-foreground">/month</span>
+                  <span className="text-5xl font-bold">
+                    ₹{billingCycle === 'monthly' ? '149' : '1499'}
+                  </span>
+                  <span className="text-muted-foreground">
+                    /{billingCycle === 'monthly' ? 'month' : 'year'}
+                  </span>
                 </div>
+                {billingCycle === 'yearly' && (
+                  <p className="text-sm text-green-600 font-medium mt-1">
+                    That's just ₹125/month!
+                  </p>
+                )}
                 <p className="text-sm text-muted-foreground mt-2">
                   Start with 7 days free • Cancel anytime
                 </p>
@@ -400,7 +442,8 @@ export default function Home() {
 
               <div className="w-full mb-6">
                 <CashfreePaymentButton
-                  amount={129}
+                  amount={billingCycle === 'monthly' ? 149 : 1499}
+                  planType={billingCycle}
                   receiptId={`sub_${session.user?.email}_${Date.now()}`}
                   customer={{
                     id: (session.user as any).id || (session.user?.email ? `cust_${session.user.email.replace(/[^a-zA-Z0-9]/g, '')}` : 'cust_temp'),

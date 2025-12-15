@@ -23,6 +23,8 @@ export function Navbar() {
     const searchParams = useSearchParams();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isPremium, setIsPremium] = useState(false);
+    const [isTrial, setIsTrial] = useState(false);
+    const [isExpiringSoon, setIsExpiringSoon] = useState(false);
 
     // Check if user has premium subscription
     useEffect(() => {
@@ -33,6 +35,23 @@ export function Navbar() {
                     const res = await fetch(`/api/payment/status?userId=${userId}&email=${session.user.email}`);
                     const data = await res.json();
                     setIsPremium(data.hasPaid || false);
+                    setIsTrial(data.isTrial || false);
+
+                    // Check for expiry
+                    if (data.hasPaid && !data.isTrial) {
+                        // We need payment details to know expiry, but status API might not return created_at
+                        // Let's fetch details if we are premium
+                        const detailsRes = await fetch(`/api/payment/details?email=${session.user.email}`);
+                        if (detailsRes.ok) {
+                            const details = await detailsRes.json();
+                            const subscriptionDaysRemaining = Math.ceil((new Date(new Date(details.created_at).getTime() + 30 * 24 * 60 * 60 * 1000).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                            if (subscriptionDaysRemaining <= 3 && subscriptionDaysRemaining >= 0) {
+                                setIsExpiringSoon(true);
+                            } else {
+                                setIsExpiringSoon(false);
+                            }
+                        }
+                    }
                 } catch (error) {
                     console.error('Failed to check premium status:', error);
                 }
@@ -56,7 +75,7 @@ export function Navbar() {
             role="navigation"
             aria-label="Main navigation"
         >
-            <div className="flex items-center h-14 md:h-16 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24">
+            <div className="flex items-center h-14 px-4 md:h-16 md:px-6 lg:px-8 max-w-7xl mx-auto">
                 {/* Logo */}
                 <div className="mr-4 flex">
                     <Link
@@ -126,9 +145,28 @@ export function Navbar() {
                                         <div className="flex items-center gap-2">
                                             <p className="text-sm font-medium leading-none">{session.user?.name}</p>
                                             {isPremium && (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white">
-                                                    <Crown className="h-3 w-3" />
-                                                    Premium
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-white ${isTrial
+                                                    ? 'bg-blue-500'
+                                                    : (isExpiringSoon ? 'bg-red-500 animate-pulse' : 'bg-gradient-to-r from-amber-500 to-orange-500')
+                                                    }`}>
+                                                    {isTrial ? (
+                                                        <>
+                                                            <span>⏳</span>
+                                                            Free Trial
+                                                        </>
+                                                    ) : (
+                                                        isExpiringSoon ? (
+                                                            <>
+                                                                <span>⚠️</span>
+                                                                Expiring
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Crown className="h-3 w-3" />
+                                                                Premium
+                                                            </>
+                                                        )
+                                                    )}
                                                 </span>
                                             )}
                                         </div>
@@ -146,7 +184,7 @@ export function Navbar() {
                                     </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem
-                                    onClick={() => signOut()}
+                                    onClick={() => signOut({ callbackUrl: '/' })}
                                     aria-label="Sign out"
                                 >
                                     <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -187,9 +225,28 @@ export function Navbar() {
                                             <div className="flex items-center gap-2">
                                                 <span className="font-medium">{session.user?.name}</span>
                                                 {isPremium && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white">
-                                                        <Crown className="h-3 w-3" />
-                                                        Pro
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-white ${isTrial
+                                                            ? 'bg-blue-500'
+                                                            : (isExpiringSoon ? 'bg-red-500 animate-pulse' : 'bg-gradient-to-r from-amber-500 to-orange-500')
+                                                        }`}>
+                                                        {isTrial ? (
+                                                            <>
+                                                                <span>⏳</span>
+                                                                Free Trial
+                                                            </>
+                                                        ) : (
+                                                            isExpiringSoon ? (
+                                                                <>
+                                                                    <span>⚠️</span>
+                                                                    Expiring
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Crown className="h-3 w-3" />
+                                                                    Premium
+                                                                </>
+                                                            )
+                                                        )}
                                                     </span>
                                                 )}
                                             </div>
@@ -224,7 +281,7 @@ export function Navbar() {
                                     <Button
                                         variant="ghost"
                                         className="justify-start px-0 text-lg font-medium text-muted-foreground hover:text-primary"
-                                        onClick={() => signOut()}
+                                        onClick={() => signOut({ callbackUrl: '/' })}
                                     >
                                         <LogOut className="mr-2 h-5 w-5" />
                                         Sign Out

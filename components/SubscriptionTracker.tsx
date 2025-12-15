@@ -71,15 +71,15 @@ export function SubscriptionTracker({ transactions }: SubscriptionTrackerProps) 
                 {recurringData.map((sub, i) => (
                     <Card key={i} className="overflow-hidden border-l-4 border-l-primary/50">
                         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                            <div className="space-y-1">
-                                <CardTitle className="text-base font-semibold truncate max-w-[150px]" title={sub.name}>
+                            <div className="space-y-1 flex-1 min-w-0 pr-2">
+                                <CardTitle className="text-base font-semibold truncate" title={sub.name}>
                                     {sub.name}
                                 </CardTitle>
                                 <CardDescription className="text-xs">
                                     Last paid: {new Date(sub.lastDate).toLocaleDateString()}
                                 </CardDescription>
                             </div>
-                            <div className="bg-primary/10 p-2 rounded-full">
+                            <div className="bg-primary/10 p-2 rounded-full flex-shrink-0">
                                 <CalendarDays className="h-4 w-4 text-primary" />
                             </div>
                         </CardHeader>

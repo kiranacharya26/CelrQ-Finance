@@ -10,9 +10,14 @@ Cashfree.XEnvironment = process.env.CASHFREE_USE_PRODUCTION === "true"
 
 export async function POST(req: Request) {
     try {
-        const { amount, receiptId, customer, returnUrl } = await req.json();
-        if (!amount) {
-            return NextResponse.json({ error: "Amount is required" }, { status: 400 });
+        const { amount, receiptId, customer, returnUrl, planType } = await req.json();
+
+        // Determine amount based on plan type (Server-side validation)
+        let orderAmount = 149;
+        if (planType === 'yearly') {
+            orderAmount = 1499; // ₹1499/year
+        } else {
+            orderAmount = 149; // ₹149/month
         }
 
         if (!customer?.email || !customer?.id) {
@@ -26,7 +31,7 @@ export async function POST(req: Request) {
 
         const orderPayload = {
             order_id: `order_${Date.now()}`,
-            order_amount: 129,
+            order_amount: orderAmount,
             order_currency: 'INR',
             order_note: receiptId || "",
             customer_details: {
