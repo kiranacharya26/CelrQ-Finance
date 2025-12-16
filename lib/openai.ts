@@ -23,7 +23,16 @@ export async function categorizeTransactions(rawInput: string | any[], learnedKe
         "Public Transport": ['metro', 'bus', 'rail', 'irctc', 'train', 'fastag', 'toll', 'bmtc', 'ksrtc', 'railway', 'ticket'],
         "Utilities": ['electricity', 'water', 'gas cylinder', 'bescom', 'bwssb', 'electricity bill', 'water bill', 'lpg', 'indane', 'utility'],
         "Credit Card Payments": ['cred', 'credit card', 'cc payment', 'card payment', 'cheq'],
-        Telecom: ['internet', 'mobile', 'recharge', 'airtel', 'jio', 'vi', 'vodafone', 'bsnl', 'act', 'hathway', 'tatasky', 'dth', 'broadband', 'prepaid', 'postpaid', 'phone'],
+        // More specific telecom keywords - avoid generic 'phone'
+        Telecom: [
+            'mobile recharge', 'phone recharge', 'mobile bill', 'phone bill', 'telecom',
+            'airtel', 'jio', 'vi', 'vodafone', 'bsnl', 'idea',
+            'internet bill', 'broadband', 'wifi', 'fiber',
+            'prepaid recharge', 'postpaid bill',
+            'dth', 'tatasky', 'dish tv', 'sun direct', 'airtel digital',
+            'act fibernet', 'hathway', 'tikona',
+            'mobile data', 'data pack', 'talk time', 'validity'
+        ],
         "Online Shopping": ['amazon', 'flipkart', 'myntra', 'meesho', 'ajio', 'nykaa', 'amazon.in', 'shopping', 'ecommerce'],
         "Retail & Stores": ['mall', 'decathlon', 'ikea', 'croma', 'reliance', 'trends', 'zudio', 'h&m', 'zara', 'uniqlo', 'lifestyle', 'store', 'retail'],
         "Streaming Services": ['netflix', 'prime', 'hotstar', 'spotify', 'youtube premium', 'disney', 'subscription', 'streaming'],
@@ -223,14 +232,25 @@ CRITICAL INSTRUCTIONS:
    - 1mg, Practo, Apollo = Healthcare
    - Cult.fit = gym/fitness → Personal Care
 
-4. **Be specific, not generic**:
-   - Don't default to "Other" or "Healthcare" unless you're certain
-   - Choose the category that best matches what the company PRIMARILY does
-   - If you see a recognizable brand, categorize it correctly
+4. **Be CONTEXT-AWARE and SPECIFIC**:
+   - "PAYMENT FROM PHONE" is NOT Telecom - it's just a payment method (use "Other" unless you can identify the actual merchant)
+   - "PHONE RECHARGE" or "MOBILE RECHARGE" IS Telecom
+   - "PHONE BILL" or "MOBILE BILL" IS Telecom
+   - "AIRTEL", "JIO", "VI", "VODAFONE" = Telecom
+   - "PAYMENT VIA APP" is NOT a category - look for the actual merchant/purpose
+   - Don't categorize based on payment method - categorize based on what was purchased
 
-5. **Extract keywords** - Identify the main merchant/brand name (lowercase, no spaces)
+5. **Telecom-specific rules**:
+   - Only categorize as Telecom if it explicitly mentions:
+     * Mobile/phone RECHARGE, BILL, or DATA
+     * Telecom provider names (Airtel, Jio, Vi, BSNL, etc.)
+     * Internet/broadband service providers
+     * DTH services (Tatasky, Dish TV, etc.)
+   - Generic words like "phone", "mobile", "payment" alone are NOT enough for Telecom
 
-6. **Only use "Other"** if you genuinely cannot identify the merchant after reading the entire description
+6. **Extract keywords** - Identify the main merchant/brand name (lowercase, no spaces)
+
+7. **Only use "Other"** if you genuinely cannot identify the merchant after reading the entire description
 
 EXAMPLES:
 - "UPI-REDBUS-abc@paytm-HDFC-123" → Category: "Travel & Transport", Keyword: "redbus"
@@ -238,6 +258,10 @@ EXAMPLES:
 - "SWIGGY INSTAMART" → Category: "Groceries", Keyword: "instamart"
 - "SWIGGY ORDER" → Category: "Restaurants & Dining", Keyword: "swiggy"
 - "UPI-WAKEFIT-123" → Category: "Retail & Stores", Keyword: "wakefit"
+- "AIRTEL MOBILE RECHARGE" → Category: "Telecom", Keyword: "airtel"
+- "JIO PREPAID RECHARGE" → Category: "Telecom", Keyword: "jio"
+- "PAYMENT FROM PHONE" → Category: "Other", Keyword: "payment" (NOT Telecom - no recharge/bill mentioned)
+- "PAYMENT VIA PHONEPE TO MERCHANT" → Look for merchant name, not "Telecom"
 
 OUTPUT FORMAT (JSON only):
 {"categories": [{"id": 0, "category": "Travel & Transport", "keyword": "redbus"}, {"id": 1, "category": "Groceries", "keyword": "zepto"}, ...]}

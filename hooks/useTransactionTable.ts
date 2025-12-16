@@ -22,7 +22,8 @@ export interface UseTransactionTableReturn {
     selectedIds: Set<string>;
     toggleSelectAll: () => void;
     toggleSelectRow: (id: string) => void;
-    handleCategoryChange: (globalIndex: number, newCategory: string) => Promise<void>;
+    handleCategoryChange: (globalIndex: number, newCategory: string, updateSimilar?: boolean) => Promise<{ updated: number } | undefined>;
+    findSimilarTransactions: (transaction: Transaction) => Transaction[];
     itemsPerPage: number;
     totalPages: number;
     startIndex: number;
@@ -124,11 +125,74 @@ export function useTransactionTable({
         }
     };
 
-    const handleCategoryChange = async (globalIndex: number, newCategory: string) => {
+    // Helper to extract merchant identifier from transaction description
+    const extractMerchantPattern = (description: string): string | null => {
+        if (!description) return null;
+
+        const desc = description.toLowerCase();
+
+        // For UPI transactions, extract the merchant name
+        if (desc.includes('upi')) {
+            // Pattern: UPI-MERCHANT-xxx or UPI/MERCHANT/xxx
+            const parts = description.split(/[-/]/);
+            if (parts.length >= 2) {
+                // Get the second part (usually merchant name)
+                const merchant = parts[1].trim();
+                // Remove common suffixes and numbers
+                return merchant
+                    .replace(/\d+/g, '') // Remove numbers
+                    .replace(/@.*/g, '') // Remove everything after @
+                    .replace(/\s+/g, '') // Remove spaces
+                    .toLowerCase()
+                    .slice(0, 15); // Limit length
+            }
+        }
+
+        // For other transactions, try to extract key words (first 2-3 meaningful words)
+        const words = desc
+            .replace(/[^a-z0-9\s]/g, ' ') // Remove special chars
+            .split(/\s+/)
+            .filter(w => w.length > 3); // Only meaningful words
+
+        if (words.length > 0) {
+            return words.slice(0, 2).join(' ');
+        }
+
+        return null;
+    };
+
+    // Find similar transactions based on merchant pattern
+    const findSimilarTransactions = (transaction: Transaction): Transaction[] => {
+        const pattern = extractMerchantPattern(transaction.description || '');
+        if (!pattern) return [];
+
+        return localTransactions.filter(t => {
+            if (t.id === transaction.id) return false; // Exclude the current transaction
+            const tPattern = extractMerchantPattern(t.description || '');
+            return tPattern === pattern;
+        });
+    };
+
+    const handleCategoryChange = async (
+        globalIndex: number,
+        newCategory: string,
+        updateSimilar: boolean = false
+    ) => {
         if (!session?.user?.email) return;
         const transactionToUpdate = localTransactions[globalIndex];
         const isBulk = selectedIds.has(transactionToUpdate.id) && selectedIds.size > 1;
-        const idsToUpdate = isBulk ? Array.from(selectedIds) : [transactionToUpdate.id];
+
+        let idsToUpdate: string[];
+
+        if (updateSimilar) {
+            // Find all similar transactions
+            const similar = findSimilarTransactions(transactionToUpdate);
+            idsToUpdate = [transactionToUpdate.id, ...similar.map(t => t.id)];
+        } else if (isBulk) {
+            idsToUpdate = Array.from(selectedIds);
+        } else {
+            idsToUpdate = [transactionToUpdate.id];
+        }
 
         // Optimistic UI
         const updatedLocal = [...localTransactions];
@@ -142,9 +206,13 @@ export function useTransactionTable({
             const { error } = await supabase.from('transactions').update({ category: newCategory }).in('id', idsToUpdate);
             if (error) throw error;
             if (onCategoryChange) onCategoryChange(globalIndex, newCategory);
+
+            // Return count for UI feedback
+            return { updated: idsToUpdate.length };
         } catch (e) {
             console.error('Error updating category:', e);
             setLocalTransactions(localTransactions); // revert
+            throw e;
         }
     };
 
@@ -160,6 +228,7 @@ export function useTransactionTable({
         toggleSelectAll,
         toggleSelectRow,
         handleCategoryChange,
+        findSimilarTransactions,
         itemsPerPage,
         totalPages,
         startIndex,

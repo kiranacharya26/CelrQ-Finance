@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useTransactionTable } from '@/hooks/useTransactionTable';
 import { TransactionPagination } from '@/components/transactions/TransactionPagination';
+import { SmartCategoryDialog } from '@/components/SmartCategoryDialog';
 
 import {
     Table,
@@ -43,6 +44,7 @@ import { Badge } from "@/components/ui/badge";
 import { Transaction } from "@/types";
 import { getTransactionDisplayInfo, getCategoryIcon } from "@/lib/merchants";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 
 interface TransactionTableProps {
     transactions: any[];
@@ -77,6 +79,7 @@ export function TransactionTable({
         toggleSelectAll,
         toggleSelectRow,
         handleCategoryChange,
+        findSimilarTransactions,
         itemsPerPage,
         totalPages,
         startIndex,
@@ -89,7 +92,82 @@ export function TransactionTable({
         setNewCategoryName,
         handleAddCustomCategory,
     } = useTransactionTable({ transactions, onCategoryChange, uniqueCategories });
+
     const [editingNote, setEditingNote] = useState<{ index: number; note: string; tags: string } | null>(null);
+
+    // Smart category update state
+    const [smartCategoryDialog, setSmartCategoryDialog] = useState<{
+        open: boolean;
+        transaction: Transaction | null;
+        globalIndex: number;
+        newCategory: string;
+        similarCount: number;
+    }>({
+        open: false,
+        transaction: null,
+        globalIndex: -1,
+        newCategory: '',
+        similarCount: 0,
+    });
+
+    // Wrapper for category change that checks for similar transactions
+    const handleCategoryChangeWithCheck = async (globalIndex: number, newCategory: string) => {
+        const transaction = localTransactions[globalIndex];
+        const similar = findSimilarTransactions(transaction);
+
+        // If there are similar transactions, show the dialog
+        if (similar.length > 0) {
+            setSmartCategoryDialog({
+                open: true,
+                transaction,
+                globalIndex,
+                newCategory,
+                similarCount: similar.length,
+            });
+        } else {
+            // No similar transactions, just update this one
+            try {
+                const result = await handleCategoryChange(globalIndex, newCategory, false);
+                if (result) {
+                    toast.success('Category updated successfully');
+                }
+            } catch (error) {
+                toast.error('Failed to update category');
+            }
+        }
+    };
+
+    // Handle updating only the current transaction
+    const handleUpdateThis = async () => {
+        try {
+            const result = await handleCategoryChange(
+                smartCategoryDialog.globalIndex,
+                smartCategoryDialog.newCategory,
+                false
+            );
+            if (result) {
+                toast.success('Category updated');
+            }
+        } catch (error) {
+            toast.error('Failed to update category');
+        }
+    };
+
+    // Handle updating all similar transactions
+    const handleUpdateAll = async () => {
+        try {
+            const result = await handleCategoryChange(
+                smartCategoryDialog.globalIndex,
+                smartCategoryDialog.newCategory,
+                true
+            );
+            if (result) {
+                toast.success(`Updated ${result.updated} transaction${result.updated > 1 ? 's' : ''}`);
+            }
+        } catch (error) {
+            toast.error('Failed to update categories');
+        }
+    };
 
     if (localTransactions.length === 0) {
         return <div className="text-center p-8 text-muted-foreground">No transactions found.</div>;
@@ -275,7 +353,7 @@ export function TransactionTable({
                                                                 if (value === '__add_new__') {
                                                                     setIsAddingCategory(true);
                                                                 } else {
-                                                                    handleCategoryChange(globalIndex, value);
+                                                                    handleCategoryChangeWithCheck(globalIndex, value);
                                                                 }
                                                             }}
                                                         >
@@ -496,7 +574,7 @@ export function TransactionTable({
                                         if (value === '__add_new__') {
                                             setIsAddingCategory(true);
                                         } else {
-                                            handleCategoryChange(globalIndex, value);
+                                            handleCategoryChangeWithCheck(globalIndex, value);
                                         }
                                     }}
                                 >
@@ -542,6 +620,17 @@ export function TransactionTable({
                 onPrevious={handlePrevious}
                 onNext={handleNext}
                 onPageChange={setCurrentPage}
+            />
+
+            {/* Smart Category Update Dialog */}
+            <SmartCategoryDialog
+                open={smartCategoryDialog.open}
+                onOpenChange={(open) => setSmartCategoryDialog({ ...smartCategoryDialog, open })}
+                transactionDescription={smartCategoryDialog.transaction?.description || ''}
+                similarCount={smartCategoryDialog.similarCount}
+                newCategory={smartCategoryDialog.newCategory}
+                onUpdateThis={handleUpdateThis}
+                onUpdateAll={handleUpdateAll}
             />
         </div>
     );
