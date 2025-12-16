@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Transaction } from '@/types';
-import { Plus, AlertCircle, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { Plus, AlertCircle, TrendingUp, CheckCircle2, Edit, Trash2 } from 'lucide-react';
 import { UserStorage } from '@/lib/storage';
 import { useSession } from 'next-auth/react';
+import { BudgetStories } from './BudgetStories';
 
 interface Budget {
     category: string;
@@ -28,6 +29,7 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
     const [budgets, setBudgets] = useState<Budget[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [newBudget, setNewBudget] = useState<Budget>({ category: '', amount: 0 });
+    const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
     // Load budgets from storage
     useEffect(() => {
@@ -58,7 +60,29 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
             saveBudgets(updated);
             setIsDialogOpen(false);
             setNewBudget({ category: '', amount: 0 });
+            setEditingBudget(null);
         }
+    };
+
+    const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; category: string | null }>({
+        isOpen: false,
+        category: null
+    });
+
+    const handleDeleteBudget = (category: string) => {
+        const updated = budgets.filter(b => b.category !== category);
+        saveBudgets(updated);
+        setDeleteConfirmation({ isOpen: false, category: null });
+    };
+
+    const confirmDelete = (category: string) => {
+        setDeleteConfirmation({ isOpen: true, category });
+    };
+
+    const handleEditBudget = (budget: Budget) => {
+        setNewBudget(budget);
+        setEditingBudget(budget);
+        setIsDialogOpen(true);
     };
 
     // Calculate spending per category for the current month
@@ -94,7 +118,13 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                     <h2 className="text-2xl font-bold tracking-tight">Monthly Budgets</h2>
                     <p className="text-muted-foreground">Plan and track your spending for {currentMonth}</p>
                 </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                    setIsDialogOpen(open);
+                    if (!open) {
+                        setNewBudget({ category: '', amount: 0 });
+                        setEditingBudget(null);
+                    }
+                }}>
                     <DialogTrigger asChild>
                         <Button>
                             <Plus className="mr-2 h-4 w-4" /> Set Budget
@@ -102,7 +132,7 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Set Category Budget</DialogTitle>
+                            <DialogTitle>{editingBudget ? 'Edit Budget' : 'Set Category Budget'}</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
@@ -110,6 +140,7 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                                 <Select
                                     value={newBudget.category}
                                     onValueChange={(val) => setNewBudget({ ...newBudget, category: val })}
+                                    disabled={!!editingBudget}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select category" />
@@ -129,7 +160,29 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                                     onChange={(e) => setNewBudget({ ...newBudget, amount: Number(e.target.value) })}
                                 />
                             </div>
-                            <Button onClick={handleAddBudget} className="w-full">Save Budget</Button>
+                            <Button onClick={handleAddBudget} className="w-full">
+                                {editingBudget ? 'Update Budget' : 'Save Budget'}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Delete Confirmation Dialog */}
+                <Dialog open={deleteConfirmation.isOpen} onOpenChange={(open) => setDeleteConfirmation({ ...deleteConfirmation, isOpen: open })}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete Budget</DialogTitle>
+                            <CardDescription>
+                                Are you sure you want to delete the budget for {deleteConfirmation.category}? This action cannot be undone.
+                            </CardDescription>
+                        </DialogHeader>
+                        <div className="flex justify-end gap-3 mt-4">
+                            <Button variant="outline" onClick={() => setDeleteConfirmation({ isOpen: false, category: null })}>
+                                Cancel
+                            </Button>
+                            <Button variant="destructive" onClick={() => deleteConfirmation.category && handleDeleteBudget(deleteConfirmation.category)}>
+                                Delete
+                            </Button>
                         </div>
                     </DialogContent>
                 </Dialog>
@@ -149,8 +202,19 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                 </CardContent>
             </Card>
 
-            {/* Category Cards Grid */}
-            <div className="grid gap-4 grid-cols-1">
+            {/* Mobile Stories View */}
+            <div className="block md:hidden -mx-4 px-4 mb-2">
+                <BudgetStories
+                    budgets={budgets}
+                    categorySpending={categorySpending}
+                    onAddBudget={() => setIsDialogOpen(true)}
+                    onEditBudget={handleEditBudget}
+                    onDeleteBudget={confirmDelete}
+                />
+            </div>
+
+            {/* Desktop Category Cards Grid */}
+            <div className="hidden md:grid gap-4 grid-cols-1">
                 {budgets.map(budget => {
                     const spent = categorySpending[budget.category] || 0;
                     const percentage = Math.min((spent / budget.amount) * 100, 100);
@@ -161,12 +225,32 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                         <Card key={budget.category} className={isOverBudget ? "border-red-500/50 bg-red-500/5" : ""}>
                             <CardHeader className="pb-2">
                                 <div className="flex justify-between items-start">
-                                    <CardTitle className="text-base font-semibold">{budget.category}</CardTitle>
-                                    {isOverBudget ? (
-                                        <AlertCircle className="h-5 w-5 text-red-500" />
-                                    ) : (
-                                        <CheckCircle2 className="h-5 w-5 text-green-500/50" />
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        <CardTitle className="text-base font-semibold">{budget.category}</CardTitle>
+                                        {isOverBudget ? (
+                                            <AlertCircle className="h-5 w-5 text-red-500" />
+                                        ) : (
+                                            <CheckCircle2 className="h-5 w-5 text-green-500/50" />
+                                        )}
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => handleEditBudget(budget)}
+                                        >
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-destructive"
+                                            onClick={() => confirmDelete(budget.category)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                                 <CardDescription>
                                     ₹{spent.toLocaleString('en-IN')} / ₹{budget.amount.toLocaleString('en-IN')}

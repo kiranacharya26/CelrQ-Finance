@@ -96,7 +96,7 @@ export function calculateGoalProgress(
         daysRemaining = Math.max(Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)), 0);
 
         if (daysRemaining > 0) {
-            weeklyTarget = amountRemaining / (daysRemaining / 7);
+            // weeklyTarget = amountRemaining / (daysRemaining / 7); // Removed
             monthlyTarget = amountRemaining / (daysRemaining / 30);
 
             // Determine if on track
@@ -119,8 +119,8 @@ export function calculateGoalProgress(
         statusMessage = `₹${amountRemaining.toLocaleString('en-IN')} remaining`;
     }
 
-    if (daysRemaining !== undefined && daysRemaining > 0 && weeklyTarget) {
-        statusMessage += ` • Save ₹${Math.round(weeklyTarget).toLocaleString('en-IN')}/week`;
+    if (daysRemaining !== undefined && daysRemaining > 0 && monthlyTarget) {
+        statusMessage += ` • Save ₹${Math.round(monthlyTarget).toLocaleString('en-IN')}/month`;
     }
 
     return {
@@ -128,7 +128,7 @@ export function calculateGoalProgress(
         progressPercentage,
         amountRemaining,
         daysRemaining,
-        weeklyTarget,
+        weeklyTarget, // Kept for interface compatibility but unused
         monthlyTarget,
         onTrack,
         projectedCompletion,
@@ -150,8 +150,8 @@ export function getGoalRecommendations(
     }
 
     // Savings goal recommendations
-    if (goal.type === 'savings' && progress.weeklyTarget) {
-        const weeklyTarget = Math.round(progress.weeklyTarget);
+    if (goal.type === 'savings' && progress.monthlyTarget) {
+        const monthlyTarget = Math.round(progress.monthlyTarget);
 
         // Suggest reducing high spending categories
         const categorySpending: Record<string, number> = {};
@@ -166,11 +166,11 @@ export function getGoalRecommendations(
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3);
 
-        if (topCategories.length > 0 && topCategories[0][1] > weeklyTarget * 4) {
+        if (topCategories.length > 0 && topCategories[0][1] > monthlyTarget) {
             const category = topCategories[0][0];
-            const reduction = Math.round(weeklyTarget * 0.5);
+            const reduction = Math.round(monthlyTarget * 0.2);
             recommendations.push(
-                `Reduce ${category} by ₹${reduction.toLocaleString('en-IN')}/week to reach goal faster`
+                `Reduce ${category} by ₹${reduction.toLocaleString('en-IN')}/month to reach goal faster`
             );
         }
     }
@@ -186,9 +186,9 @@ export function getGoalRecommendations(
     }
 
     // On track status
-    if (!progress.onTrack && progress.weeklyTarget) {
+    if (!progress.onTrack && progress.monthlyTarget) {
         recommendations.push(
-            `You're behind schedule. Increase weekly savings to ₹${Math.round(progress.weeklyTarget * 1.2).toLocaleString('en-IN')}`
+            `You're behind schedule. Increase monthly savings to ₹${Math.round(progress.monthlyTarget * 1.2).toLocaleString('en-IN')}`
         );
     } else if (progress.onTrack && progress.progressPercentage > 50) {
         recommendations.push(`You're on track! Keep up the good work`);

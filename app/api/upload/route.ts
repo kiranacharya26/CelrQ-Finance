@@ -3,8 +3,11 @@ import { parsePDF, parseCSV, parseExcel, parseDate } from '@/lib/parser';
 import { categorizeTransactions } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
-import { randomUUID } from 'crypto';
-import MD5 from 'crypto-js/md5';
+import { createHash, randomUUID } from 'crypto';
+
+function md5Hex(input: string) {
+    return createHash('md5').update(input).digest('hex');
+}
 
 export const runtime = 'nodejs';
 
@@ -138,7 +141,7 @@ export async function POST(request: Request) {
         console.log(`📤 Upload started: ${file.name} (${(file.size / 1024).toFixed(2)}KB)`);
 
         // Calculate MD5 hash of the file content
-        const fileHash = MD5(buffer.toString('binary')).toString();
+        const fileHash = md5Hex(buffer.toString('binary'));
         console.log(`🔐 File Hash: ${fileHash}`);
 
         // --- RESUME CHECK: Check if this file content was already uploaded successfully ---

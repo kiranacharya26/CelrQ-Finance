@@ -6,6 +6,8 @@ import { Navbar } from "@/components/Navbar";
 import { SessionProvider } from "@/components/SessionProvider";
 import { TransactionsProvider } from "@/context/TransactionsContext";
 import { ChatInterface } from "@/components/ChatInterface";
+import { MobileNav } from "@/components/MobileNav";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -96,10 +98,12 @@ export default function RootLayout({
               <Suspense fallback={<div className="h-16 border-b bg-background" />}>
                 <Navbar />
               </Suspense>
-              <main id="main-content" className="flex-1 overflow-x-hidden">
+              <main id="main-content" className="flex-1 overflow-x-hidden pb-20 md:pb-0">
                 {children}
               </main>
               <ChatInterface />
+              <MobileNav />
+              <Toaster />
             </div>
           </TransactionsProvider>
         </SessionProvider>

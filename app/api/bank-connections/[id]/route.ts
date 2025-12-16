@@ -3,12 +3,12 @@ import { supabase } from '@/lib/supabase';
 
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const body = await request.json();
         const { email } = body;
-        const connectionId = params.id;
+        const { id: connectionId } = await params;
 
         if (!email) {
             return NextResponse.json({ error: 'Email required' }, { status: 400 });

@@ -174,7 +174,7 @@ export function ChatInterface() {
             <Button
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
-                    "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg transition-all duration-300 z-50",
+                    "fixed bottom-20 md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg transition-all duration-300 z-50",
                     isOpen ? "rotate-90 scale-0 opacity-0" : "scale-100 opacity-100"
                 )}
                 size="icon"
@@ -186,9 +186,9 @@ export function ChatInterface() {
             {/* Chat Window */}
             <div
                 className={cn(
-                    "fixed bottom-6 right-6 z-50 flex flex-col transition-all duration-300 ease-in-out origin-bottom-right",
+                    "fixed bottom-20 md:bottom-6 right-6 z-50 flex flex-col transition-all duration-300 ease-in-out origin-bottom-right",
                     isOpen
-                        ? "w-[380px] h-[600px] opacity-100 scale-100 translate-y-0"
+                        ? "w-[calc(100vw-3rem)] md:w-[380px] h-[600px] max-h-[calc(100vh-8rem)] opacity-100 scale-100 translate-y-0"
                         : "w-[0px] h-[0px] opacity-0 scale-50 translate-y-10 pointer-events-none"
                 )}
             >

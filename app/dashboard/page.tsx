@@ -28,7 +28,7 @@ const GoalTracker = dynamic(() => import('@/components/GoalTracker').then(mod =>
 });
 
 import { BudgetManager } from '@/components/BudgetManager';
-import { SubscriptionTracker } from '@/components/SubscriptionTracker';
+
 import { BankConnections } from '@/components/BankConnections';
 import { DashboardHero } from '@/components/DashboardHero';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
@@ -294,6 +294,14 @@ function DashboardContent() {
                 netSavings={netSavings}
             />
 
+            {/* Mobile Only: Budget Stories */}
+            <div className="md:hidden w-full">
+                <BudgetManager
+                    transactions={filteredTransactions}
+                    currentMonth={selectedMonth === 'All Months' ? new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) : selectedMonth}
+                />
+            </div>
+
             {/* Main Content - Column-based Layout for Tight Stacking */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
@@ -334,8 +342,8 @@ function DashboardContent() {
                         </Suspense>
                     </div>
 
-                    {/* Budget Manager - Placed below Top Expenses in Right Column */}
-                    <div className="w-full">
+                    {/* Budget Manager - Desktop Only (Sidebar) */}
+                    <div className="hidden md:block w-full">
                         <BudgetManager
                             transactions={filteredTransactions}
                             currentMonth={selectedMonth === 'All Months' ? new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) : selectedMonth}

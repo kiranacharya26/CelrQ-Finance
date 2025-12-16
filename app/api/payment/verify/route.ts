@@ -48,11 +48,26 @@ export async function POST(req: Request) {
         let orderData;
 
         try {
-            const orderResponse = await (Cashfree as any).PGOrderFetch("2023-08-01", orderId);
-            orderData = orderResponse.data;
-            console.log("✅ Cashfree Order Fetch Success:", JSON.stringify(orderData, null, 2));
+            // Direct fetch fallback since SDK method is failing
+            const baseUrl = isProduction ? "https://api.cashfree.com" : "https://sandbox.cashfree.com";
+            const fetchRes = await fetch(`${baseUrl}/pg/orders/${orderId}`, {
+                method: 'GET',
+                headers: {
+                    'x-client-id': process.env.NEXT_PUBLIC_CASHFREE_APP_ID!,
+                    'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
+                    'x-api-version': '2023-08-01'
+                }
+            });
+
+            if (!fetchRes.ok) {
+                const errText = await fetchRes.text();
+                throw new Error(`Cashfree API Error: ${fetchRes.status} ${errText}`);
+            }
+
+            orderData = await fetchRes.json();
+            console.log("✅ Cashfree Order Fetch Success (Direct API):", JSON.stringify(orderData, null, 2));
         } catch (cfError: any) {
-            console.error("❌ Cashfree PGOrderFetch failed:", cfError?.response?.data || cfError.message);
+            console.error("❌ Cashfree verification failed:", cfError.message);
             // Strict verification: If we can't verify with Cashfree, we fail.
             return NextResponse.json({ error: "Failed to verify with payment gateway" }, { status: 502 });
         }
@@ -89,7 +104,6 @@ export async function POST(req: Request) {
 
         console.warn("⚠️  Order status is not PAID:", orderData.order_status);
         return NextResponse.json({ success: false, status: orderData.order_status });
-
     } catch (error: any) {
         console.error("❌ Payment verification error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });

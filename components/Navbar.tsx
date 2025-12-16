@@ -226,8 +226,8 @@ export function Navbar() {
                                                 <span className="font-medium">{session.user?.name}</span>
                                                 {isPremium && (
                                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-white ${isTrial
-                                                            ? 'bg-blue-500'
-                                                            : (isExpiringSoon ? 'bg-red-500 animate-pulse' : 'bg-gradient-to-r from-amber-500 to-orange-500')
+                                                        ? 'bg-blue-500'
+                                                        : (isExpiringSoon ? 'bg-red-500 animate-pulse' : 'bg-gradient-to-r from-amber-500 to-orange-500')
                                                         }`}>
                                                         {isTrial ? (
                                                             <>

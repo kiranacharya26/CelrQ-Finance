@@ -21,23 +21,52 @@ import {
 } from "@/components/ui/dialog";
 
 import { useTransactions } from '@/hooks/useTransactions';
-import { SubscriptionTracker } from '@/components/SubscriptionTracker';
+import { toast } from 'sonner';
+
 
 function SettingsContent() {
     const { userEmail, isAuthenticated } = useAuth();
     const { transactions } = useTransactions({ userEmail, selectedBank: 'all' });
     const router = useRouter();
+
+    // State
     const [isPremium, setIsPremium] = useState(false);
+    const [wasPremium, setWasPremium] = useState(false);
     const [paymentDetails, setPaymentDetails] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-
     const [isTrial, setIsTrial] = useState(false);
     const [trialDays, setTrialDays] = useState(0);
 
-    // Delete Account State
+    // Modal State
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Handlers
+    const handleCancelSubscription = async () => {
+        const toastId = toast.loading('Cancelling subscription...');
+        try {
+            const res = await fetch('/api/payment/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: userEmail })
+            });
+            if (res.ok) {
+                setIsPremium(false);
+                setPaymentDetails(null);
+                toast.success('Subscription cancelled successfully', { id: toastId });
+                setCancelModalOpen(false);
+                router.refresh();
+            } else {
+                const err = await res.json();
+                toast.error('Failed to cancel: ' + (err.error || 'unknown error'), { id: toastId });
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Error cancelling subscription', { id: toastId });
+        }
+    };
 
     const handleDeleteAccount = async () => {
         if (deleteConfirmText !== 'DELETE') return;
@@ -75,6 +104,15 @@ function SettingsContent() {
         }
     };
 
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    // Effects
     useEffect(() => {
         const fetchPaymentDetails = async () => {
             if (userEmail) {
@@ -84,6 +122,7 @@ function SettingsContent() {
                     setIsPremium(data.hasPaid || false);
                     setIsTrial(data.isTrial || false);
                     setTrialDays(data.trialDaysRemaining || 0);
+                    setWasPremium(data.wasPremium || false);
 
                     // Fetch full payment details from payments table
                     if (data.hasPaid && !data.isTrial) {
@@ -107,20 +146,27 @@ function SettingsContent() {
         return <div className="flex items-center justify-center h-screen">Please sign in to view settings.</div>;
     }
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
-    };
-
-    // Calculate subscription status
+    // Calculations
     const subscriptionDaysRemaining = paymentDetails
-        ? Math.ceil((new Date(new Date(paymentDetails.created_at).getTime() + 30 * 24 * 60 * 60 * 1000).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+        ? Math.ceil((new Date(new Date(paymentDetails.created_at).getTime() + (Number(paymentDetails.amount) > 149 ? 365 : 30) * 24 * 60 * 60 * 1000).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
         : 0;
 
     const isExpiringSoon = isPremium && !isTrial && subscriptionDaysRemaining <= 3 && subscriptionDaysRemaining >= 0;
+
+    if (loading) {
+        return (
+            <div className="flex-1 space-y-6 p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full">
+                <div className="space-y-2">
+                    <div className="h-8 w-48 bg-muted animate-pulse rounded"></div>
+                    <div className="h-4 w-96 bg-muted animate-pulse rounded"></div>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="col-span-1 md:col-span-2 lg:col-span-2 h-64 bg-muted animate-pulse rounded-lg"></div>
+                    <div className="h-64 bg-muted animate-pulse rounded-lg"></div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex-1 space-y-6 p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full">
@@ -149,7 +195,10 @@ function SettingsContent() {
                                         ? `You have ${trialDays} days remaining in your trial`
                                         : (isExpiringSoon
                                             ? `⚠️ Your subscription expires in ${subscriptionDaysRemaining} days!`
-                                            : (isPremium ? 'Full access to all features' : 'Start your 7-day free trial')
+                                            : (isPremium
+                                                ? 'Full access to all features'
+                                                : (wasPremium ? 'Renew your subscription to regain access' : 'Start your 7-day free trial')
+                                            )
                                         )
                                     }
                                 </p>
@@ -179,8 +228,12 @@ function SettingsContent() {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="space-y-1">
                                 <p className="text-sm text-muted-foreground">Plan Price</p>
-                                <p className="text-2xl font-bold">₹149</p>
-                                <p className="text-xs text-muted-foreground">per month</p>
+                                <p className="text-2xl font-bold">
+                                    {paymentDetails && Number(paymentDetails.amount) > 149 ? '₹1499' : '₹149'}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {paymentDetails && Number(paymentDetails.amount) > 149 ? 'per year' : 'per month'}
+                                </p>
                             </div>
                             {isPremium && !isTrial && paymentDetails && (
                                 <>
@@ -193,7 +246,7 @@ function SettingsContent() {
                                     <div className="space-y-1">
                                         <p className="text-sm text-muted-foreground">Subscription Ends</p>
                                         <p className="text-lg font-semibold">
-                                            {formatDate(new Date(new Date(paymentDetails.created_at).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString())}
+                                            {formatDate(new Date(new Date(paymentDetails.created_at).getTime() + (Number(paymentDetails.amount) > 149 ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString())}
                                         </p>
                                     </div>
                                 </>
@@ -211,38 +264,66 @@ function SettingsContent() {
                                 >
                                     {isExpiringSoon
                                         ? `Renew Now (₹149/mo)`
-                                        : (isTrial ? 'Continue After Trial (₹149/mo)' : 'Start Free Trial')
+                                        : (isTrial
+                                            ? 'Continue After Trial (₹149/mo)'
+                                            : (wasPremium ? 'Renew Subscription (₹149/mo)' : 'Start Free Trial')
+                                        )
                                     }
                                 </button>
                             </div>
                         )}
                         {isPremium && !isTrial && (
                             <div className="pt-4 border-t flex flex-wrap gap-4">
+                                <Dialog open={cancelModalOpen} onOpenChange={setCancelModalOpen}>
+                                    <DialogTrigger asChild>
+                                        <button
+                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                                        >
+                                            Cancel Subscription
+                                        </button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Cancel Subscription?</DialogTitle>
+                                            <DialogDescription>
+                                                Are you sure you want to cancel your premium subscription? You will lose access to premium features at the end of your current billing period.
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <DialogFooter>
+                                            <Button variant="outline" onClick={() => setCancelModalOpen(false)}>
+                                                Keep Subscription
+                                            </Button>
+                                            <Button variant="destructive" onClick={handleCancelSubscription}>
+                                                Yes, Cancel
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
                                 <button
                                     onClick={async () => {
+                                        const toastId = toast.loading('Refreshing payment status...');
                                         try {
-                                            const res = await fetch('/api/payment/cancel', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ email: userEmail })
-                                            });
-                                            if (res.ok) {
-                                                setIsPremium(false);
-                                                setPaymentDetails(null);
-                                                alert('Subscription cancelled successfully');
+                                            const res = await fetch(`/api/payment/status?email=${userEmail}`);
+                                            const data = await res.json();
+                                            setIsPremium(data.hasPaid || false);
+                                            setIsTrial(data.isTrial || false);
+                                            setTrialDays(data.trialDaysRemaining || 0);
+                                            setWasPremium(data.wasPremium || false);
+
+                                            if (data.hasPaid && !data.isTrial) {
+                                                toast.success('Payment status updated! You are Premium.', { id: toastId });
+                                                // Refresh page to update navbar
                                                 router.refresh();
                                             } else {
-                                                const err = await res.json();
-                                                alert('Failed to cancel: ' + (err.error || 'unknown error'));
+                                                toast.info('Payment status is up to date.', { id: toastId });
                                             }
                                         } catch (e) {
-                                            console.error(e);
-                                            alert('Error cancelling subscription');
+                                            toast.error('Failed to refresh status', { id: toastId });
                                         }
                                     }}
-                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                                 >
-                                    Cancel Subscription
+                                    Refresh Status
                                 </button>
                                 <button
                                     onClick={() => router.push('/')}
@@ -350,11 +431,6 @@ function SettingsContent() {
                     <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
                         <BankConnections />
                     </Suspense>
-                </div>
-
-                {/* Subscription Tracker - Spans full width */}
-                <div className="col-span-1 md:col-span-2 lg:col-span-3">
-                    <SubscriptionTracker transactions={transactions} />
                 </div>
 
                 {/* Danger Zone - Spans full width */}

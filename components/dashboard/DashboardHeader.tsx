@@ -63,16 +63,24 @@ export function DashboardHeader({
     const { refresh } = useTransactionsContext();
     const [isUploadOpen, setIsUploadOpen] = useState(false);
 
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good Morning';
+        if (hour < 18) return 'Good Afternoon';
+        return 'Good Evening';
+    };
+
     return (
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between pb-3 border-b mb-3">
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight hidden md:block">Dashboard</h1>
+                <h1 className="text-2xl font-bold tracking-tight md:hidden">{getGreeting()}</h1>
                 <p className="text-sm text-muted-foreground">Overview of your financial health</p>
             </div>
             <div className="flex items-center gap-2">
                 <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
                     <DialogTrigger asChild>
-                        <Button className="shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40">
+                        <Button className="shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40 hidden md:flex">
                             <Upload className="mr-2 h-4 w-4" /> Import Statement
                         </Button>
                     </DialogTrigger>

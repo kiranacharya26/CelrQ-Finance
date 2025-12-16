@@ -32,7 +32,7 @@ export async function GET(req: Request) {
 
         // Check for any successful payment for this user
         // We check both user_id AND email to be safe
-        let query = supabase.from("payments").select("*").eq("status", "PAID");
+        let query = supabase.from("payments").select("*").in("status", ["PAID", "SUCCESS"]);
 
         if (userId && email) {
             // Check if either user_id matches OR email matches (case insensitive)
@@ -45,14 +45,11 @@ export async function GET(req: Request) {
 
         // Check if user has a payment record
         // We check for 'PAID' status (Cashfree standard) or 'SUCCESS' (legacy/webhook)
-        const { data: payment, error } = await supabase
-            .from('payments')
-            .select('*')
-            .eq('email', email)
-            .in('status', ['PAID', 'SUCCESS'])
+        const { data: payments, error } = await query
             .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+            .limit(1);
+
+        const payment = payments && payments.length > 0 ? payments[0] : null;
 
         console.log("Payment query result:", {
             payment: payment,
@@ -153,12 +150,36 @@ export async function GET(req: Request) {
             }
         }
 
-        console.log("Final status:", { hasPaid, isTrial, trialDaysRemaining });
+        // Check if user has ANY past paid/cancelled subscription history
+        // This helps distinguish between a new user (eligible for trial) and a returning user (needs to renew)
+        let wasPremium = false;
+        if (userId || email) {
+            let historyQuery = supabase
+                .from('payments')
+                .select('*', { count: 'exact', head: true })
+                .in('status', ['PAID', 'SUCCESS', 'CANCELLED']);
+
+            if (userId && email) {
+                historyQuery = historyQuery.or(`user_id.eq.${userId},email.ilike.${email}`);
+            } else if (userId) {
+                historyQuery = historyQuery.eq("user_id", userId);
+            } else if (email) {
+                historyQuery = historyQuery.ilike("email", email);
+            }
+
+            const { count } = await historyQuery;
+            if (count && count > 0) {
+                wasPremium = true;
+            }
+        }
+
+        console.log("Final status:", { hasPaid, isTrial, trialDaysRemaining, wasPremium });
         return NextResponse.json({
             hasPaid,
             isTrial,
             trialDaysRemaining,
-            paymentDetails: payment
+            paymentDetails: payment,
+            wasPremium
         });
 
     } catch (error: any) {

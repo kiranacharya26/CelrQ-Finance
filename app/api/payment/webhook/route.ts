@@ -49,17 +49,21 @@ export async function POST(req: Request) {
         }
 
         const payload = JSON.parse(rawBody);
-        const {
-            order_id,
-            payment_id,
-            order_amount,
-            order_currency,
-            order_status,
-            customer_details,
-        } = payload;
 
-        // Normalize status - Cashfree sends "SUCCESS", "FAILED", etc.
-        // We normalize to "PAID" or "FAILED" for consistency
+        // Cashfree webhook structure is nested: data -> order -> ...
+        // Or sometimes directly at root depending on event type.
+        // Let's try to extract safely.
+        const data = payload.data || payload;
+        const order = data.order || data;
+        const payment = data.payment || {};
+        const customer = data.customer_details || order.customer_details || {};
+
+        const order_id = order.order_id;
+        const order_amount = order.order_amount;
+        const order_currency = order.order_currency;
+        const order_status = payment.payment_status || order.order_status; // Payment status is more granular
+
+        // Normalize status
         let normalizedStatus = order_status;
         if (order_status === "SUCCESS" || order_status === "ACTIVE") {
             normalizedStatus = "PAID";
@@ -69,17 +73,21 @@ export async function POST(req: Request) {
 
         console.log(`Webhook received: order_id=${order_id}, status=${order_status} -> ${normalizedStatus}`);
 
+        if (!order_id) {
+            console.error("Missing order_id in webhook payload:", JSON.stringify(payload));
+            return NextResponse.json({ error: "Invalid payload structure" }, { status: 400 });
+        }
+
         // Insert or update payment record in Supabase
         const { error } = await supabase.from("payments").upsert(
             {
                 order_id,
-                payment_id,
-                amount: order_amount, // Cashfree sends amount in INR, not paise
+                amount: order_amount,
                 currency: order_currency,
                 status: normalizedStatus,
-                user_id: customer_details?.customer_id,
-                email: customer_details?.customer_email, // Add email for fallback matching
-                metadata: payload, // Store full payload for debugging
+                user_id: customer.customer_id,
+                email: customer.customer_email,
+                metadata: payload,
             },
             { onConflict: "order_id" }
         );
