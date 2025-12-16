@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { BankConnections } from '@/components/BankConnections';
+import { UploadHistory } from '@/components/UploadHistory';
 import { Crown, Trash2, AlertTriangle, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { signOut } from 'next-auth/react';
@@ -430,6 +431,13 @@ function SettingsContent() {
                 <div className="col-span-1 md:col-span-2 lg:col-span-3">
                     <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
                         <BankConnections />
+                    </Suspense>
+                </div>
+
+                {/* Upload History - Spans full width */}
+                <div className="col-span-1 md:col-span-2 lg:col-span-3">
+                    <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
+                        <UploadHistory />
                     </Suspense>
                 </div>
 
