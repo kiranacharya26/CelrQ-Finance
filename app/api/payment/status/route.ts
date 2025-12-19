@@ -38,6 +38,19 @@ export async function GET(req: Request) {
             }, { status: 400 });
         }
 
+        // Developer/Admin Bypass
+        // Allows specified emails to bypass payment checks
+        const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+        if (email && adminEmails.includes(email.toLowerCase())) {
+            return NextResponse.json({
+                hasPaid: true,
+                isTrial: false, // Not a trial, full access
+                trialDaysRemaining: 365,
+                wasPremium: true,
+                paymentDetails: { status: 'ADMIN_BYPASS' }
+            });
+        }
+
         // Check for any successful payment for this user
         // We check both user_id AND email to be safe
         let query = supabase.from("payments").select("*").in("status", ["PAID", "SUCCESS"]);
