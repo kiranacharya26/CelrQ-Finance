@@ -182,13 +182,45 @@ export function useTransactionTable({
         const transactionToUpdate = localTransactions[globalIndex];
         const isBulk = selectedIds.has(transactionToUpdate.id) && selectedIds.size > 1;
 
-        let idsToUpdate: string[];
-
+        // If updating similar transactions, use the new Bulk API
         if (updateSimilar) {
-            // Find all similar transactions
-            const similar = findSimilarTransactions(transactionToUpdate);
-            idsToUpdate = [transactionToUpdate.id, ...similar.map(t => t.id)];
-        } else if (isBulk) {
+            try {
+                // Optimistic UI Update
+                const similar = findSimilarTransactions(transactionToUpdate);
+                const idsToUpdate = [transactionToUpdate.id, ...similar.map(t => t.id)];
+
+                const updatedLocal = [...localTransactions];
+                idsToUpdate.forEach(id => {
+                    const idx = updatedLocal.findIndex(t => t.id === id);
+                    if (idx !== -1) updatedLocal[idx] = { ...updatedLocal[idx], category: newCategory };
+                });
+                setLocalTransactions(updatedLocal);
+
+                // Call Backend API
+                const response = await fetch('/api/transactions/bulk-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userEmail: session.user.email,
+                        description: extractMerchantPattern(transactionToUpdate.description || ''), // Use the pattern for matching
+                        newCategory,
+                        action: 'execute'
+                    })
+                });
+
+                if (!response.ok) throw new Error('Bulk update failed');
+
+                return { updated: idsToUpdate.length };
+            } catch (e) {
+                console.error('Error updating similar transactions:', e);
+                setLocalTransactions(localTransactions); // Revert on error
+                throw e;
+            }
+        }
+
+        // Standard Single or Selection Update (Existing Logic)
+        let idsToUpdate: string[];
+        if (isBulk) {
             idsToUpdate = Array.from(selectedIds);
         } else {
             idsToUpdate = [transactionToUpdate.id];
@@ -207,7 +239,22 @@ export function useTransactionTable({
             if (error) throw error;
             if (onCategoryChange) onCategoryChange(globalIndex, newCategory);
 
-            // Return count for UI feedback
+            // Also save rule for single update if it's a manual correction?
+            // Optional: We could save rule even for single updates to be smart.
+            // Let's do it for single updates too to be helpful.
+            if (idsToUpdate.length === 1) {
+                await fetch('/api/transactions/bulk-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userEmail: session.user.email,
+                        description: extractMerchantPattern(transactionToUpdate.description || ''),
+                        newCategory,
+                        action: 'execute' // This will update DB (redundant but safe) and save rule
+                    })
+                });
+            }
+
             return { updated: idsToUpdate.length };
         } catch (e) {
             console.error('Error updating category:', e);
