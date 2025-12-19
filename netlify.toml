@@ -1,5 +1,4 @@
 [build.environment]
   NODE_VERSION = "20"
 
-[functions]
-  max_duration = 60
+
