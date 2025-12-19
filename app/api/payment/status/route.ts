@@ -30,6 +30,14 @@ export async function GET(req: Request) {
             }, { status: 400 });
         }
 
+        // Validate that email is not "undefined" or "null" string
+        if (email === 'undefined' || email === 'null') {
+            return NextResponse.json({
+                hasPaid: false,
+                error: "Invalid email provided"
+            }, { status: 400 });
+        }
+
         // Check for any successful payment for this user
         // We check both user_id AND email to be safe
         let query = supabase.from("payments").select("*").in("status", ["PAID", "SUCCESS"]);
@@ -59,21 +67,23 @@ export async function GET(req: Request) {
         if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
             console.error("Error fetching payment status:", error);
 
-            // If table doesn't exist, return false instead of error
+            // If table doesn't exist, we should NOT return false immediately.
+            // We should proceed to the trial logic, which handles table creation/insertion errors gracefully.
+            // This ensures that on a fresh instance, users can still get a "trial" (access granted) even if persistence fails.
             if (
                 error.code === 'PGRST205' ||
                 error.message?.includes("relation") ||
                 error.message?.includes("does not exist") ||
                 error.message?.includes("Could not find the table")
             ) {
-                console.warn("Payments table does not exist. Assuming no payments made.");
-                return NextResponse.json({ hasPaid: false });
+                console.warn("Payments table does not exist. Proceeding to trial logic.");
+                // Fall through to trial logic
+            } else {
+                return NextResponse.json({
+                    hasPaid: false,
+                    error: error.message
+                }, { status: 500 });
             }
-
-            return NextResponse.json({
-                hasPaid: false,
-                error: error.message
-            }, { status: 500 });
         }
 
         // Check for trial start record
