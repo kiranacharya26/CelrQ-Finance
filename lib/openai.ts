@@ -225,6 +225,7 @@ CRITICAL INSTRUCTIONS:
    - Zomato, Swiggy = Restaurants & Dining (unless it says "Instamart" then it's Groceries)
    - Uber, Ola, Rapido = Ride Services
    - BookMyShow = Events & Recreation
+   - YouTube, Google YouTube, Netflix, Spotify = Streaming Services
    - And hundreds more...
 
 3. **Use your knowledge** - You have extensive knowledge of what companies do:
@@ -250,9 +251,14 @@ CRITICAL INSTRUCTIONS:
      * DTH services (Tatasky, Dish TV, etc.)
    - Generic words like "phone", "mobile", "payment" alone are NOT enough for Telecom
 
-6. **Extract keywords** - Identify the main merchant/brand name (lowercase, no spaces)
+6. **Restaurant & Food Inference (CRITICAL)**:
+   - If a name ends with "Bhavan", "Sagar", "Dwaraka", "Kitchen", "Grand", "Hotel", "Cafe", "Bistro", "Roastery", "Bakery", "Sweets" -> It is likely **Restaurants & Dining**.
+   - Examples: "Sri Krishna Dwaraka", "Adyar Ananda Bhavan", "Udupi Grand", "Rameshwaram Cafe".
+   - If it sounds like a food item or establishment, categorize as Restaurants & Dining.
 
-7. **Only use "Other"** if you genuinely cannot identify the merchant after reading the entire description
+7. **Extract keywords** - Identify the main merchant/brand name (lowercase, no spaces)
+
+8. **Only use "Other"** if you genuinely cannot identify the merchant after reading the entire description
 
 EXAMPLES:
 - "UPI-REDBUS-abc@paytm-HDFC-123" → Category: "Travel & Transport", Keyword: "redbus"
@@ -264,6 +270,8 @@ EXAMPLES:
 - "JIO PREPAID RECHARGE" → Category: "Telecom", Keyword: "jio"
 - "PAYMENT FROM PHONE" → Category: "Other", Keyword: "payment" (NOT Telecom - no recharge/bill mentioned)
 - "PAYMENT VIA PHONEPE TO MERCHANT" → Look for merchant name, not "Telecom"
+- "Google YouTube" → Category: "Streaming Services", Keyword: "youtube"
+- "Sri Krishna Dwaraka" → Category: "Restaurants & Dining", Keyword: "sri krishna dwaraka"
 
 OUTPUT FORMAT (JSON only):
 {"categories": [{"id": 0, "category": "Travel & Transport", "keyword": "redbus"}, {"id": 1, "category": "Groceries", "keyword": "zepto"}, ...]}
