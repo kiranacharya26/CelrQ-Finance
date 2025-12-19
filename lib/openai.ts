@@ -198,8 +198,10 @@ export async function categorizeTransactions(rawInput: string | any[], learnedKe
     const payloadObj = uniqueDescArray.map((desc, i) => ({ id: i, description: desc }));
     const rawDataString = JSON.stringify(payloadObj);
 
-    // Limit payload size
-    const payload = rawDataString.substring(0, 15000);
+    // Limit payload size to prevent timeouts
+    // Netlify functions have 10s default, max 26s. 
+    // We need to be conservative.
+    const payload = rawDataString.substring(0, 8000);
 
     const prompt = `You are a financial categorization expert with deep knowledge of thousands of global and Indian businesses, brands, and services.
 
@@ -276,8 +278,8 @@ Remember: Read EVERY word in each description. The merchant name is hiding somew
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.3,
-            response_format: { type: "json_object" }
-        });
+            response_format: { type: "json_object" },
+        }, { timeout: 25000 }); // 25s timeout to avoid Netlify 26s hard limit
 
         const content = response.choices[0].message.content;
         if (!content) throw new Error("Empty response");
