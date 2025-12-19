@@ -21,7 +21,7 @@ export async function GET(req: Request) {
         const email = searchParams.get("email");
         const userId = searchParams.get("userId");
 
-        console.log("Payment status check:", { userId, email });
+
 
         if (!email && !userId) {
             return NextResponse.json({
@@ -59,10 +59,7 @@ export async function GET(req: Request) {
 
         const payment = payments && payments.length > 0 ? payments[0] : null;
 
-        console.log("Payment query result:", {
-            payment: payment,
-            error: error?.message,
-        });
+
 
         if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
             console.error("Error fetching payment status:", error);
@@ -101,13 +98,7 @@ export async function GET(req: Request) {
             .limit(1)
             .single();
 
-        console.log("Trial Check Debug:", {
-            email,
-            trialRecordFound: !!trialRecord,
-            trialRecordDate: trialRecord?.created_at,
-            firstUploadFound: !!firstUpload,
-            firstUploadDate: firstUpload?.created_at
-        });
+
 
         let isTrial = false;
         let trialDaysRemaining = 0;
@@ -132,12 +123,7 @@ export async function GET(req: Request) {
                 const diffTime = Math.abs(now.getTime() - trialStartDate.getTime());
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                console.log("Trial Duration Check:", {
-                    trialStartDate,
-                    now,
-                    diffDays,
-                    isWithin7Days: diffDays <= 7
-                });
+
 
                 if (diffDays <= 7) {
                     isTrial = true;
@@ -151,7 +137,7 @@ export async function GET(req: Request) {
                 }
             } else {
                 // No trial record and no uploads -> Brand new user -> Start Trial
-                console.log("Starting new trial for user:", email);
+                // No trial record and no uploads -> Brand new user -> Start Trial
 
                 // Record trial start
                 const { error: insertError } = await supabase.from('payments').insert({
@@ -198,7 +184,7 @@ export async function GET(req: Request) {
             }
         }
 
-        console.log("Final status:", { hasPaid, isTrial, trialDaysRemaining, wasPremium });
+
 
         const response = NextResponse.json({
             hasPaid,
