@@ -101,6 +101,14 @@ export async function GET(req: Request) {
             .limit(1)
             .single();
 
+        console.log("Trial Check Debug:", {
+            email,
+            trialRecordFound: !!trialRecord,
+            trialRecordDate: trialRecord?.created_at,
+            firstUploadFound: !!firstUpload,
+            firstUploadDate: firstUpload?.created_at
+        });
+
         let isTrial = false;
         let trialDaysRemaining = 0;
         let hasPaid = !!payment;
@@ -123,6 +131,13 @@ export async function GET(req: Request) {
                 const now = new Date();
                 const diffTime = Math.abs(now.getTime() - trialStartDate.getTime());
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                console.log("Trial Duration Check:", {
+                    trialStartDate,
+                    now,
+                    diffDays,
+                    isWithin7Days: diffDays <= 7
+                });
 
                 if (diffDays <= 7) {
                     isTrial = true;
@@ -184,13 +199,18 @@ export async function GET(req: Request) {
         }
 
         console.log("Final status:", { hasPaid, isTrial, trialDaysRemaining, wasPremium });
-        return NextResponse.json({
+
+        const response = NextResponse.json({
             hasPaid,
             isTrial,
             trialDaysRemaining,
             paymentDetails: payment,
             wasPremium
         });
+
+        // Prevent caching
+        response.headers.set('Cache-Control', 'no-store, max-age=0');
+        return response;
 
     } catch (error: any) {
         console.error("Unexpected error in payment status check:", error);
