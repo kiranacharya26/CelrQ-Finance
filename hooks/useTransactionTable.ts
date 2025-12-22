@@ -4,6 +4,8 @@ import { UserStorage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { detectRecurringTransactions } from '@/lib/recurring';
 import { Transaction } from '@/types';
+import { getMerchantIdentifier } from '@/lib/categorizer';
+import { useTransactionsContext } from '@/context/TransactionsContext';
 
 export interface UseTransactionTableParams {
     transactions: Transaction[];
@@ -43,6 +45,7 @@ export function useTransactionTable({
     uniqueCategories = [],
 }: UseTransactionTableParams): UseTransactionTableReturn {
     const { data: session } = useSession();
+    const { refresh } = useTransactionsContext();
     const [currentPage, setCurrentPage] = useState(1);
     const [localTransactions, setLocalTransactions] = useState<Transaction[]>(transactions);
     const [customCategories, setCustomCategories] = useState<string[]>([]);
@@ -73,8 +76,9 @@ export function useTransactionTable({
             'Restaurants & Dining',
             'Fuel',
             'Ride Services',
+            'Travel & Transport',
             'Public Transport',
-            'Bills',
+            'Utilities',
             'Telecom',
             'Online Shopping',
             'Retail & Stores',
@@ -86,6 +90,7 @@ export function useTransactionTable({
             'Insurance',
             'Investments',
             'Personal Care',
+            'Credit Card Payments',
             'Other',
         ];
         return [...DEFAULT_CATEGORIES, ...customCategories].sort();
@@ -128,37 +133,7 @@ export function useTransactionTable({
     // Helper to extract merchant identifier from transaction description
     const extractMerchantPattern = (description: string): string | null => {
         if (!description) return null;
-
-        const desc = description.toLowerCase();
-
-        // For UPI transactions, extract the merchant name
-        if (desc.includes('upi')) {
-            // Pattern: UPI-MERCHANT-xxx or UPI/MERCHANT/xxx
-            const parts = description.split(/[-/]/);
-            if (parts.length >= 2) {
-                // Get the second part (usually merchant name)
-                const merchant = parts[1].trim();
-                // Remove common suffixes and numbers
-                return merchant
-                    .replace(/\d+/g, '') // Remove numbers
-                    .replace(/@.*/g, '') // Remove everything after @
-                    .replace(/\s+/g, '') // Remove spaces
-                    .toLowerCase()
-                    .slice(0, 15); // Limit length
-            }
-        }
-
-        // For other transactions, try to extract key words (first 2-3 meaningful words)
-        const words = desc
-            .replace(/[^a-z0-9\s]/g, ' ') // Remove special chars
-            .split(/\s+/)
-            .filter(w => w.length > 3); // Only meaningful words
-
-        if (words.length > 0) {
-            return words.slice(0, 2).join(' ');
-        }
-
-        return null;
+        return getMerchantIdentifier(description).toLowerCase();
     };
 
     // Find similar transactions based on merchant pattern
@@ -210,6 +185,7 @@ export function useTransactionTable({
 
                 if (!response.ok) throw new Error('Bulk update failed');
 
+                refresh(); // Sync with global context
                 return { updated: idsToUpdate.length };
             } catch (e) {
                 console.error('Error updating similar transactions:', e);
@@ -255,6 +231,7 @@ export function useTransactionTable({
                 });
             }
 
+            refresh(); // Sync with global context
             return { updated: idsToUpdate.length };
         } catch (e) {
             console.error('Error updating category:', e);

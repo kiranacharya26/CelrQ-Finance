@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { parsePDF, parseCSV, parseExcel, parseDate } from '@/lib/parser';
-import { categorizeTransactions } from '@/lib/openai';
-import { supabase } from '@/lib/supabase';
+import { categorizeTransactions } from '@/lib/categorizer';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, randomUUID } from 'crypto';
 
@@ -73,21 +73,22 @@ const sanitizeTransaction = (raw: any, userEmail: string, bankName: string, uplo
 };
 
 // Helper to upsert transactions
-const storeTransactions = async (transactions: any[], userEmail: string, bankName: string, fileName: string, fileHash: string) => {
+const storeTransactions = async (transactions: any[], userEmail: string, bankName: string, fileName: string, fileHash: string, uploadId?: string) => {
     // 1. Create Upload Record
-    const uploadId = randomUUID();
+    if (!uploadId) uploadId = randomUUID();
 
     // Try to insert into uploads table. If it fails (e.g. table doesn't exist yet), we proceed without upload_id
     // to maintain backward compatibility until migration is run.
     try {
-        const { error: uploadError } = await supabase.from('uploads').insert({
+        const { error: uploadError } = await supabaseAdmin.from('uploads').insert({
             id: uploadId,
             user_email: userEmail,
             file_name: fileName,
             file_hash: fileHash, // Save the hash!
             bank_name: bankName,
             transaction_count: transactions.length,
-            status: 'completed'
+            processed_count: 0,
+            status: 'processing'
         });
 
         if (uploadError) {
@@ -106,7 +107,7 @@ const storeTransactions = async (transactions: any[], userEmail: string, bankNam
     const BATCH_SIZE = 1000;
     for (let i = 0; i < sanitized.length; i += BATCH_SIZE) {
         const batch = sanitized.slice(i, i + BATCH_SIZE);
-        const { data, error } = await supabase.from('transactions').upsert(batch);
+        const { data, error } = await supabaseAdmin.from('transactions').upsert(batch);
         if (error) {
             console.error('Supabase upsert error:', error);
             // If error is about missing column 'upload_id', retry without it
@@ -116,7 +117,7 @@ const storeTransactions = async (transactions: any[], userEmail: string, bankNam
                     const { upload_id, ...rest } = t;
                     return rest;
                 });
-                const { error: retryError } = await supabase.from('transactions').upsert(batchNoUploadId);
+                const { error: retryError } = await supabaseAdmin.from('transactions').upsert(batchNoUploadId);
                 if (retryError) throw retryError;
             } else {
                 throw error;
@@ -144,38 +145,40 @@ export async function POST(request: Request) {
         const fileHash = md5Hex(buffer.toString('binary'));
         console.log(`🔐 File Hash: ${fileHash}`);
 
-        // --- RESUME CHECK: Check if this file content was already uploaded successfully ---
+        const uploadId = randomUUID();
+
+        // --- RESUME CHECK DISABLED ---
+        // We disable this to ensure users get the latest AI categorization logic 
+        // even if they re-upload the same file.
+        /*
         try {
             const { data: existingUpload } = await supabase
                 .from('uploads')
                 .select('id, status')
                 .eq('user_email', userEmail)
-                .eq('file_hash', fileHash) // Check by HASH, not name
+                .eq('file_hash', fileHash)
                 .eq('status', 'completed')
                 .single();
 
             if (existingUpload) {
-                console.log(`♻️  Duplicate content detected (ID: ${existingUpload.id}). Resuming from DB...`);
-
-                // Fetch existing transactions for this upload
-                const { data: existingTransactions } = await supabase
+                const { data: existingTransactions } = await supabaseAdmin
                     .from('transactions')
                     .select('*')
                     .eq('upload_id', existingUpload.id);
 
                 if (existingTransactions && existingTransactions.length > 0) {
-                    console.log(`✅ Returned ${existingTransactions.length} existing transactions. Zero processing cost.`);
-                    return NextResponse.json({
+                    // 6. Finalize Upload Record
+    await supabaseAdmin.from('uploads').update({ status: 'completed', processed_count: sanitized.length }).eq('id', uploadId);
+
+    return NextResponse.json({
                         transactions: existingTransactions,
                         newlyLearnedKeywords: {},
                         message: "File content already uploaded. Returned existing data."
                     });
                 }
             }
-        } catch (e) {
-            // Ignore error if check fails, proceed to normal upload
-            console.warn("Resume check failed, proceeding with fresh upload:", e);
-        }
+        } catch (e) {}
+        */
         // -----------------------------------------------------------------------
 
         // 0. Ensure Trial Started Record Exists
@@ -225,13 +228,13 @@ export async function POST(request: Request) {
         // 1. Fetch DB Rules (The Memory Bank)
         let dbKeywords: Record<string, string[]> = {};
         try {
-            const { data: dbRules, error } = await supabase
+            const { data: dbRules, error } = await supabaseAdmin
                 .from('merchant_rules')
                 .select('keyword, category')
                 .eq('user_email', userEmail);
 
             if (!error && dbRules) {
-                dbRules.forEach(r => {
+                dbRules.forEach((r: any) => {
                     if (!dbKeywords[r.category]) dbKeywords[r.category] = [];
                     dbKeywords[r.category].push(r.keyword);
                 });
@@ -267,7 +270,7 @@ export async function POST(request: Request) {
 
             if (newRulesToInsert.length > 0) {
                 try {
-                    const { error } = await supabase.from('merchant_rules').upsert(newRulesToInsert, { onConflict: 'user_email, keyword' });
+                    const { error } = await supabaseAdmin.from('merchant_rules').upsert(newRulesToInsert, { onConflict: 'user_email, keyword' });
                     if (!error) console.log(`🧠 Saved ${newRulesToInsert.length} new merchant rules`);
                 } catch (err) {
                     // Silent fail
@@ -288,11 +291,11 @@ export async function POST(request: Request) {
             }];
 
             console.time('🤖 AI categorization');
-            const { results: transactions, newlyLearnedKeywords } = await categorizeTransactions(pdfTransactions, learnedKeywords);
+            const { results: transactions, newlyLearnedKeywords } = await categorizeTransactions(pdfTransactions, learnedKeywords, uploadId);
             console.timeEnd('🤖 AI categorization');
 
             await saveNewRules(newlyLearnedKeywords);
-            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash);
+            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash, uploadId);
             return NextResponse.json({ transactions, newlyLearnedKeywords });
         }
 
@@ -304,7 +307,7 @@ export async function POST(request: Request) {
             console.timeEnd('⏱️  CSV parsing');
 
             console.time('🤖 AI categorization');
-            const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(rawTransactions, learnedKeywords);
+            const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(rawTransactions, learnedKeywords, userEmail, uploadId);
             console.timeEnd('🤖 AI categorization');
 
             await saveNewRules(newlyLearnedKeywords);
@@ -315,7 +318,7 @@ export async function POST(request: Request) {
                 merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
             }));
 
-            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash);
+            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash, uploadId);
             return NextResponse.json({ transactions, newlyLearnedKeywords });
         }
 
@@ -331,7 +334,7 @@ export async function POST(request: Request) {
             console.timeEnd('⏱️  Excel parsing');
 
             console.time('🤖 AI categorization');
-            const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(rawTransactions, learnedKeywords);
+            const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(rawTransactions, learnedKeywords, userEmail, uploadId);
             console.timeEnd('🤖 AI categorization');
 
             await saveNewRules(newlyLearnedKeywords);
@@ -342,7 +345,7 @@ export async function POST(request: Request) {
                 merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
             }));
 
-            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash);
+            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash, uploadId);
             return NextResponse.json({ transactions, newlyLearnedKeywords });
         }
 

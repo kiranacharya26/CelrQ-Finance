@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useTransactionTable } from '@/hooks/useTransactionTable';
 import { TransactionPagination } from '@/components/transactions/TransactionPagination';
 import { SmartCategoryDialog } from '@/components/SmartCategoryDialog';
+import { useRouter } from 'next/navigation';
 
 import {
     Table,
@@ -110,6 +111,8 @@ export function TransactionTable({
         similarCount: 0,
     });
 
+    const router = useRouter();
+
     // Wrapper for category change that checks for similar transactions
     const handleCategoryChangeWithCheck = async (globalIndex: number, newCategory: string) => {
         const transaction = localTransactions[globalIndex];
@@ -190,7 +193,12 @@ export function TransactionTable({
         'withdrawal',       // Normalized version (if exists)
         'deposit'           // Normalized version (if exists)
     ];
-    const headers = Object.keys(localTransactions[0]).filter(key => !hiddenColumns.includes(key));
+    const headers = Object.keys(localTransactions[0] || {}).filter(key => !hiddenColumns.includes(key));
+
+    // Ensure 'category' is always in headers if it exists in data or we want to show it
+    if (!headers.includes('category')) {
+        headers.push('category');
+    }
 
     const categoryHeaderIndex = headers.findIndex(h => h.toLowerCase().includes('category'));
     const descriptionHeaderIndex = headers.findIndex(h => h.toLowerCase().includes('description'));
@@ -416,7 +424,15 @@ export function TransactionTable({
                                                     </div>
                                                 ) : (
                                                     <div className="flex items-center gap-2">
-                                                        <span className={isFirstColumn ? "font-medium text-foreground" : "text-muted-foreground"}>
+                                                        <span
+                                                            className={`${isFirstColumn ? "font-medium text-foreground" : "text-muted-foreground"} cursor-pointer hover:text-primary hover:underline transition-colors`}
+                                                            onClick={() => {
+                                                                const merchant = t.merchant_name || t.description || t.narration;
+                                                                if (merchant) {
+                                                                    router.push(`/dashboard/merchants/${encodeURIComponent(merchant)}`);
+                                                                }
+                                                            }}
+                                                        >
                                                             {header === 'Withdrawal Amt.' || header === 'Deposit Amt.' ? (
                                                                 t[header] ? `₹${Number(t[header]).toLocaleString('en-IN')}` : '-'
                                                             ) : (
@@ -543,7 +559,15 @@ export function TransactionTable({
 
                                     {/* Description & Date */}
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-sm leading-tight mb-1 line-clamp-2 break-words">
+                                        <p
+                                            className="font-medium text-sm leading-tight mb-1 line-clamp-2 break-words cursor-pointer hover:text-primary transition-colors"
+                                            onClick={() => {
+                                                const merchant = t.merchant_name || t.description || t.narration;
+                                                if (merchant) {
+                                                    router.push(`/dashboard/merchants/${encodeURIComponent(merchant)}`);
+                                                }
+                                            }}
+                                        >
                                             {description}
                                         </p>
                                         <p className="text-xs text-muted-foreground">

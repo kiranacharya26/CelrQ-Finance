@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { createClient } from '@supabase/supabase-js';
 import { getToken, decode } from 'next-auth/jwt';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function DELETE(req: Request) {
     let session: any = await getServerSession(authOptions);
@@ -68,12 +68,6 @@ export async function DELETE(req: Request) {
         console.log('Headers:', JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
         return NextResponse.json({ error: 'Unauthorized - Session not found' }, { status: 401 });
     }
-
-    // Use Service Role Key to bypass RLS and ensure everything is deleted
-    const supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
 
     try {
         console.log(`🗑️ Deleting account data for ${userEmail}...`);

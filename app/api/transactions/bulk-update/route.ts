@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(req: Request) {
     try {
@@ -9,14 +9,9 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
-
         // 1. PREVIEW: Find matching transactions
         if (action === 'preview') {
-            const { data: matches, error } = await supabase
+            const { data: matches, error } = await supabaseAdmin
                 .from('transactions')
                 .select('id, date, description, amount, category')
                 .eq('user_email', userEmail)
@@ -34,7 +29,7 @@ export async function POST(req: Request) {
         // 2. EXECUTE: Update all matching transactions
         if (action === 'execute') {
             // A. Update Transactions
-            const { error: updateError } = await supabase
+            const { error: updateError } = await supabaseAdmin
                 .from('transactions')
                 .update({ category: newCategory })
                 .eq('user_email', userEmail)
@@ -45,7 +40,7 @@ export async function POST(req: Request) {
             // B. Learn for Future (Update Memory Bank)
             // We extract a keyword from the description to save as a rule
             // Simple logic: use the description as the keyword for now
-            const { error: ruleError } = await supabase
+            const { error: ruleError } = await supabaseAdmin
                 .from('merchant_rules')
                 .upsert({
                     user_email: userEmail,

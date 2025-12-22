@@ -36,9 +36,9 @@ export function SpendingForecast({ transactions }: SpendingForecastProps) {
 
     const getAlertColor = (severity: ForecastAlert['severity']) => {
         switch (severity) {
-            case 'high': return 'bg-red-50 border-red-200 text-red-800';
-            case 'medium': return 'bg-yellow-50 border-yellow-200 text-yellow-800';
-            case 'low': return 'bg-green-50 border-green-200 text-green-800';
+            case 'high': return 'bg-red-500/10 border-red-500/20 text-red-500';
+            case 'medium': return 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500';
+            case 'low': return 'bg-green-500/10 border-green-500/20 text-green-500';
         }
     };
 
@@ -87,25 +87,25 @@ export function SpendingForecast({ transactions }: SpendingForecastProps) {
                 </CardHeader>
                 <CardContent>
                     <div className="grid gap-4 md:grid-cols-2">
-                        <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-                            <p className="text-sm text-blue-600 font-medium">Total Spending</p>
-                            <p className="text-3xl font-bold text-blue-900 mt-1">
+                        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                            <p className="text-sm text-blue-500 font-medium">Total Spending</p>
+                            <p className="text-3xl font-bold mt-1">
                                 ₹{forecast.totalCurrent.toLocaleString('en-IN')}
                             </p>
-                            <p className="text-xs text-blue-600 mt-1">Historical average</p>
+                            <p className="text-xs text-blue-500/70 mt-1">Historical average</p>
                         </div>
-                        <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
-                            <p className="text-sm text-purple-600 font-medium">Predicted Next Month</p>
-                            <p className="text-3xl font-bold text-purple-900 mt-1">
+                        <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                            <p className="text-sm text-purple-500 font-medium">Predicted Next Month</p>
+                            <p className="text-3xl font-bold mt-1">
                                 ₹{forecast.totalPredicted.toLocaleString('en-IN')}
                             </p>
                             {forecast.totalPredicted > forecast.totalCurrent && forecast.totalCurrent > 0 && (
-                                <p className="text-xs text-purple-600 mt-1">
+                                <p className="text-xs text-red-500 mt-1">
                                     ↑ {Math.round(((forecast.totalPredicted - forecast.totalCurrent) / forecast.totalCurrent) * 100)}% higher
                                 </p>
                             )}
                             {forecast.totalPredicted < forecast.totalCurrent && forecast.totalCurrent > 0 && (
-                                <p className="text-xs text-green-600 mt-1">
+                                <p className="text-xs text-green-500 mt-1">
                                     ↓ {Math.round(((forecast.totalCurrent - forecast.totalPredicted) / forecast.totalCurrent) * 100)}% lower
                                 </p>
                             )}
@@ -146,7 +146,7 @@ export function SpendingForecast({ transactions }: SpendingForecastProps) {
                                     <span>•</span>
                                     <span>Avg: ₹{cat.averageMonthly.toLocaleString('en-IN')}</span>
                                 </div>
-                                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
                                     {(() => {
                                         const maxPredicted = Math.max(...forecast.categoryForecasts.map(c => c.predictedNextMonth));
                                         const widthPercent = Math.max((cat.predictedNextMonth / maxPredicted) * 100, 2);

@@ -1,28 +1,25 @@
-// Recurring transaction detection algorithm
-
-interface Transaction {
-    [key: string]: any;
+export interface Subscription {
+    name: string;
+    amount: number;
+    frequency: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+    lastDate: string;
+    nextDate: string;
+    category: string;
+    icon: string;
+    status: 'active' | 'cancelled' | 'expiring';
+    confidence: number;
 }
 
-interface RecurringGroup {
-    description: string;
-    transactions: Transaction[];
-    frequency: 'weekly' | 'monthly' | 'quarterly';
-    averageAmount: number;
-}
-
-export function detectRecurringTransactions(transactions: Transaction[]): Set<number> {
+export function detectRecurringTransactions(transactions: any[]): Set<number> {
     if (transactions.length < 2) return new Set();
 
     const recurringIndices = new Set<number>();
 
     // Find description and date keys
-    const descKey = Object.keys(transactions[0] || {}).find(k => /description|narration|particulars/i.test(k));
-    const dateKey = Object.keys(transactions[0] || {}).find(k => /^date$/i.test(k));
+    const descKey = Object.keys(transactions[0] || {}).find(k => /description|narration|particulars/i.test(k)) || 'description';
+    const dateKey = Object.keys(transactions[0] || {}).find(k => /^date$/i.test(k)) || 'date';
 
-    if (!descKey || !dateKey) return new Set();
-
-    // List of known subscription services to flag even if they appear only once
+    // List of known subscription services
     const KNOWN_SUBSCRIPTIONS = [
         'netflix', 'spotify', 'apple', 'prime', 'amazon prime', 'youtube', 'google one',
         'hotstar', 'disney+', 'hulu', 'hbo', 'aws', 'azure', 'digitalocean', 'vercel',
@@ -32,32 +29,22 @@ export function detectRecurringTransactions(transactions: Transaction[]): Set<nu
         'x premium', 'twitter', 'medium', 'substack', 'patreon', 'onlyfans', 'twitch',
         'dropbox', 'box', 'icloud', 'onedrive', 'proton', 'expressvpn', 'nordvpn',
         'surfshark', 'hostinger', 'godaddy', 'namecheap', 'bluehost', 'squarespace',
-        'wix', 'wordpress', 'shopify', 'mailchimp', 'convertkit', 'beehiiv', 'ghost'
+        'wix', 'wordpress', 'shopify', 'mailchimp', 'convertkit', 'beehiiv', 'ghost',
+        'airtel', 'jio', 'vi', 'act fibernet', 'bescom', 'tata sky', 'dish tv'
     ];
-
-    // Check for known subscriptions first
-    transactions.forEach((t, index) => {
-        const desc = String(t[descKey] || '').toLowerCase().trim();
-        if (KNOWN_SUBSCRIPTIONS.some(sub => desc.includes(sub))) {
-            recurringIndices.add(index);
-        }
-    });
 
     // Group transactions by similar descriptions
     const groups: Map<string, number[]> = new Map();
 
     transactions.forEach((t, index) => {
-        // ... (existing grouping logic)
         const desc = String(t[descKey] || '').toLowerCase().trim();
         if (!desc) return;
 
-        // Extract merchant name from UPI or normalize description
+        // Extract merchant name or normalize description
         let normalizedDesc = desc;
         if (desc.includes('upi-')) {
             const parts = desc.split('-');
-            if (parts.length >= 2) {
-                normalizedDesc = parts[1].toLowerCase().trim();
-            }
+            if (parts.length >= 2) normalizedDesc = parts[1].toLowerCase().trim();
         }
 
         // Find similar existing group
@@ -75,78 +62,117 @@ export function detectRecurringTransactions(transactions: Transaction[]): Set<nu
         }
     });
 
-    // Analyze each group for recurring patterns
+    // Analyze each group
     for (const [desc, indices] of groups.entries()) {
-        // Skip if already identified as known subscription
-        if (indices.some(idx => recurringIndices.has(idx))) continue;
-
-        if (indices.length < 2) continue;
-
-        // ... (rest of the existing logic)
-        // Get transactions in this group
-        const groupTransactions = indices.map(i => transactions[i]);
-
-        // Check if amounts are similar (±20%)
-        const amounts = groupTransactions.map(t => {
-            const withdrawalKey = Object.keys(t).find(k => /withdrawal|debit/i.test(k));
-            const amountKey = Object.keys(t).find(k => /^amount$/i.test(k));
-
-            if (withdrawalKey && t[withdrawalKey]) {
-                return parseFloat(String(t[withdrawalKey]).replace(/[^0-9.-]+/g, '')) || 0;
-            } else if (amountKey && t[amountKey]) {
-                return Math.abs(parseFloat(String(t[amountKey]).replace(/[^0-9.-]+/g, '')) || 0);
+        if (indices.length < 2) {
+            // Check if it's a known subscription even if it only appears once
+            if (KNOWN_SUBSCRIPTIONS.some(sub => desc.includes(sub))) {
+                recurringIndices.add(indices[0]);
             }
-            return 0;
-        });
+            continue;
+        }
 
+        const groupTransactions = indices.map(i => transactions[i]);
+        const amounts = groupTransactions.map(t => Math.abs(parseFloat(String(t.amount || t.withdrawal || 0))));
         const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+
         const amountsSimilar = amounts.every(amt => {
+            if (avgAmount === 0) return true;
             const diff = Math.abs(amt - avgAmount) / avgAmount;
-            return diff < 0.2; // Within 20%
+            return diff < 0.25; // Within 25%
         });
 
         if (!amountsSimilar) continue;
 
-        // Check if dates are at regular intervals
         const dates = groupTransactions.map(t => new Date(t[dateKey])).sort((a, b) => a.getTime() - b.getTime());
+        const intervals: number[] = [];
+        for (let i = 1; i < dates.length; i++) {
+            const daysDiff = Math.abs((dates[i].getTime() - dates[i - 1].getTime()) / (1000 * 60 * 60 * 24));
+            intervals.push(daysDiff);
+        }
 
-        if (dates.length >= 2) {
-            const intervals: number[] = [];
-            for (let i = 1; i < dates.length; i++) {
-                const daysDiff = Math.abs((dates[i].getTime() - dates[i - 1].getTime()) / (1000 * 60 * 60 * 24));
-                intervals.push(daysDiff);
-            }
+        const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        const isWeekly = Math.abs(avgInterval - 7) < 3;
+        const isMonthly = Math.abs(avgInterval - 30) < 7;
+        const isQuarterly = Math.abs(avgInterval - 90) < 14;
+        const isYearly = Math.abs(avgInterval - 365) < 30;
 
-            // Check for weekly (7 days ±3), monthly (30 days ±7), or quarterly (90 days ±14)
-            const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-
-            const isWeekly = Math.abs(avgInterval - 7) < 3;
-            const isMonthly = Math.abs(avgInterval - 30) < 7;
-            const isQuarterly = Math.abs(avgInterval - 90) < 14;
-
-            if (isWeekly || isMonthly || isQuarterly) {
-                // Mark all transactions in this group as recurring
-                indices.forEach(idx => recurringIndices.add(idx));
-            }
+        if (isWeekly || isMonthly || isQuarterly || isYearly || KNOWN_SUBSCRIPTIONS.some(sub => desc.includes(sub))) {
+            indices.forEach(idx => recurringIndices.add(idx));
         }
     }
 
     return recurringIndices;
 }
 
-function areSimilarDescriptions(desc1: string, desc2: string): boolean {
-    // Simple similarity check - can be enhanced with Levenshtein distance
-    if (desc1 === desc2) return true;
+export function identifySubscriptions(transactions: any[]): Subscription[] {
+    const recurringIndices = detectRecurringTransactions(transactions);
+    const recurringTxs = transactions.filter((_, i) => recurringIndices.has(i));
 
-    // Check if one contains the other (for partial matches)
-    if (desc1.includes(desc2) || desc2.includes(desc1)) {
-        return desc1.length > 3 && desc2.length > 3; // Avoid matching very short strings
-    }
+    const groups: Map<string, any[]> = new Map();
+    recurringTxs.forEach(t => {
+        const desc = (t.merchant_name || t.description || '').toLowerCase();
+        let key = desc;
+        for (const gKey of groups.keys()) {
+            if (areSimilarDescriptions(desc, gKey)) {
+                key = gKey;
+                break;
+            }
+        }
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(t);
+    });
 
-    return false;
+    const subscriptions: Subscription[] = [];
+    groups.forEach((txs, name) => {
+        const sorted = txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const latest = sorted[0];
+        const amounts = txs.map(t => Math.abs(t.amount || 0));
+        const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+
+        // Calculate frequency
+        let frequency: Subscription['frequency'] = 'monthly';
+        if (txs.length >= 2) {
+            const dates = txs.map(t => new Date(t.date).getTime()).sort();
+            const intervals = [];
+            for (let i = 1; i < dates.length; i++) {
+                intervals.push((dates[i] - dates[i - 1]) / (1000 * 60 * 60 * 24));
+            }
+            const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+            if (avgInterval < 10) frequency = 'weekly';
+            else if (avgInterval < 45) frequency = 'monthly';
+            else if (avgInterval < 120) frequency = 'quarterly';
+            else frequency = 'yearly';
+        }
+
+        // Predict next date
+        const lastDate = new Date(latest.date);
+        const nextDate = new Date(lastDate);
+        if (frequency === 'weekly') nextDate.setDate(lastDate.getDate() + 7);
+        else if (frequency === 'monthly') nextDate.setMonth(lastDate.getMonth() + 1);
+        else if (frequency === 'quarterly') nextDate.setMonth(lastDate.getMonth() + 3);
+        else nextDate.setFullYear(lastDate.getFullYear() + 1);
+
+        subscriptions.push({
+            name: latest.merchant_name || latest.description,
+            amount: avgAmount,
+            frequency,
+            lastDate: latest.date,
+            nextDate: nextDate.toISOString().split('T')[0],
+            category: latest.category || 'Other',
+            icon: '', // Will be filled by UI
+            status: nextDate < new Date() ? 'expiring' : 'active',
+            confidence: txs.length > 2 ? 0.9 : 0.6
+        });
+    });
+
+    return subscriptions;
 }
 
-export function getRecurringTransactions(transactions: Transaction[]): Transaction[] {
-    const recurringIndices = detectRecurringTransactions(transactions);
-    return transactions.filter((_, index) => recurringIndices.has(index));
+function areSimilarDescriptions(desc1: string, desc2: string): boolean {
+    if (desc1 === desc2) return true;
+    const d1 = desc1.toLowerCase();
+    const d2 = desc2.toLowerCase();
+    if (d1.includes(d2) || d2.includes(d1)) return d1.length > 3 && d2.length > 3;
+    return false;
 }

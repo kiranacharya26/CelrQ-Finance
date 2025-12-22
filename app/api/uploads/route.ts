@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     }
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('uploads')
             .select('*')
             .eq('user_email', userEmail)
@@ -35,17 +35,26 @@ export async function DELETE(request: Request) {
     }
 
     try {
-        // 1. Delete the upload record
-        // Note: If you set up ON DELETE CASCADE in SQL, this will automatically delete transactions.
-        // If not, you need to delete transactions first.
-        // Assuming CASCADE is set up as per migration plan.
-        const { error } = await supabase
+        // 1. Delete all transactions associated with this upload
+        const { error: transError } = await supabaseAdmin
+            .from('transactions')
+            .delete()
+            .eq('upload_id', id)
+            .eq('user_email', userEmail);
+
+        if (transError) {
+            console.error('Error deleting transactions:', transError);
+            // We continue anyway to try and delete the upload record
+        }
+
+        // 2. Delete the upload record
+        const { error: uploadError } = await supabaseAdmin
             .from('uploads')
             .delete()
             .eq('id', id)
             .eq('user_email', userEmail);
 
-        if (error) throw error;
+        if (uploadError) throw uploadError;
 
         return NextResponse.json({ success: true });
     } catch (error) {

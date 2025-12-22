@@ -31,6 +31,7 @@ import { BudgetManager } from '@/components/BudgetManager';
 
 import { BankConnections } from '@/components/BankConnections';
 import { DashboardHero } from '@/components/DashboardHero';
+import { InvestmentPortfolio } from '@/components/InvestmentPortfolio';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exportToCSV, exportToPDF } from '@/lib/export';
@@ -293,6 +294,11 @@ function DashboardContent() {
                 totalExpenses={totalExpenses}
                 netSavings={netSavings}
             />
+
+            {/* Investment Portfolio */}
+            <div className="w-full">
+                <InvestmentPortfolio transactions={filteredTransactions} />
+            </div>
 
             {/* Mobile Only: Budget Stories */}
             <div className="md:hidden w-full">

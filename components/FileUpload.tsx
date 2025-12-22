@@ -1,26 +1,32 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, File as FileIcon, X, Loader2, Building2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 interface FileUploadProps {
     onUpload: (file: File, bankAccount: string) => Promise<void>;
 }
 
 export function FileUpload({ onUpload }: FileUploadProps) {
+    const router = useRouter();
     const [file, setFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [elapsedTime, setElapsedTime] = useState(0);
     const [selectedBank, setSelectedBank] = useState<string>('');
     const [newBankName, setNewBankName] = useState('');
     const [isAddingNewBank, setIsAddingNewBank] = useState(false);
+    const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
+    const [showExitModal, setShowExitModal] = useState(false);
 
     // Get saved bank accounts from localStorage
     const [bankAccounts, setBankAccounts] = useState<string[]>(() => {
@@ -33,6 +39,32 @@ export function FileUpload({ onUpload }: FileUploadProps) {
 
     const [isEditingName, setIsEditingName] = useState(false);
     const [editedFileName, setEditedFileName] = useState('');
+
+    // Persistence and Exit Prevention
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (isUploading) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isUploading]);
+
+    // Check for existing upload on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('current_upload');
+        if (saved) {
+            const data = JSON.parse(saved);
+            // If it's the same session/file, we could resume, but for now let's just clear if it's old
+            // or notify the user. For simplicity, we'll clear it if it's more than 10 mins old.
+            if (Date.now() - data.timestamp > 10 * 60 * 1000) {
+                localStorage.removeItem('current_upload');
+            }
+        }
+    }, []);
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) {
@@ -67,26 +99,53 @@ export function FileUpload({ onUpload }: FileUploadProps) {
         if (!file || !selectedBank) return;
 
         setIsUploading(true);
-        setProgress(10);
+        setProgress(5);
+        setElapsedTime(0);
+
+        // Estimate: ~45 seconds for a standard statement
+        const totalEstimate = 45;
+        setEstimatedTimeRemaining(totalEstimate);
+
+        const startTime = Date.now();
+
+        // Save to local storage for persistence
+        localStorage.setItem('current_upload', JSON.stringify({
+            fileName: file.name,
+            bank: selectedBank,
+            timestamp: startTime,
+            status: 'processing'
+        }));
+
+        const timerInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            setElapsedTime(elapsed);
+            setEstimatedTimeRemaining(Math.max(0, totalEstimate - elapsed));
+        }, 1000);
 
         try {
-            // Simulate progress
-            const interval = setInterval(() => {
+            // Simulate progress more realistically
+            const progressInterval = setInterval(() => {
                 setProgress((prev) => {
-                    if (prev >= 90) {
-                        clearInterval(interval);
-                        return 90;
+                    if (prev >= 95) {
+                        clearInterval(progressInterval);
+                        return 95;
                     }
-                    return prev + 10;
+                    const increment = prev < 50 ? 5 : (prev < 80 ? 2 : 1);
+                    return prev + increment;
                 });
-            }, 500);
+            }, 800);
 
             await onUpload(file, selectedBank);
 
-            clearInterval(interval);
+            clearInterval(progressInterval);
+            clearInterval(timerInterval);
             setProgress(100);
+            setEstimatedTimeRemaining(0);
+            localStorage.removeItem('current_upload');
         } catch (error) {
             console.error('Upload failed', error);
+            clearInterval(timerInterval);
+            localStorage.removeItem('current_upload');
         } finally {
             setIsUploading(false);
         }
@@ -95,11 +154,11 @@ export function FileUpload({ onUpload }: FileUploadProps) {
     const removeFile = () => {
         setFile(null);
         setProgress(0);
+        setElapsedTime(0);
     };
 
     const handleRenameFile = () => {
         if (file && editedFileName.trim()) {
-            // Create a new file with the updated name
             const renamedFile = new File([file], editedFileName.trim(), { type: file.type });
             setFile(renamedFile);
             setIsEditingName(false);
@@ -118,7 +177,7 @@ export function FileUpload({ onUpload }: FileUploadProps) {
 
                     {!isAddingNewBank ? (
                         <div className="space-y-2">
-                            <Select value={selectedBank} onValueChange={setSelectedBank}>
+                            <Select value={selectedBank} onValueChange={setSelectedBank} disabled={isUploading}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Choose bank account" />
                                 </SelectTrigger>
@@ -133,6 +192,7 @@ export function FileUpload({ onUpload }: FileUploadProps) {
                                 size="sm"
                                 className="w-full"
                                 onClick={() => setIsAddingNewBank(true)}
+                                disabled={isUploading}
                             >
                                 + Add New Bank
                             </Button>
@@ -239,8 +299,17 @@ export function FileUpload({ onUpload }: FileUploadProps) {
                                     </p>
                                 </div>
                             </div>
-                            {!isUploading && (
+                            {!isUploading ? (
                                 <Button variant="ghost" size="icon" onClick={removeFile} aria-label="Remove file" className="shrink-0 ml-2">
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setShowExitModal(true)}
+                                    className="shrink-0 ml-2 text-muted-foreground hover:text-red-500"
+                                >
                                     <X className="h-4 w-4" />
                                 </Button>
                             )}
@@ -248,10 +317,37 @@ export function FileUpload({ onUpload }: FileUploadProps) {
 
                         {isUploading && (
                             <div className="space-y-2">
+                                <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                    <div className="flex flex-col">
+                                        {estimatedTimeRemaining !== null && estimatedTimeRemaining > 0 ? (
+                                            <span className="text-blue-500 font-medium">Est. remaining: ~{estimatedTimeRemaining}s</span>
+                                        ) : (
+                                            <span className="text-orange-500 font-medium italic animate-pulse">Finalizing forensic analysis...</span>
+                                        )}
+                                    </div>
+                                    <span className="font-bold text-foreground">{progress}%</span>
+                                </div>
                                 <Progress value={progress} />
-                                <p className="text-xs text-center text-muted-foreground">
-                                    Processing transactions...
+                                <p className="text-[10px] text-center text-muted-foreground italic">
+                                    {progress < 30 && "Extracting transaction data..."}
+                                    {progress >= 30 && progress < 70 && "Running AI forensic merchant identification..."}
+                                    {progress >= 70 && progress < 95 && "Categorizing and mapping insights..."}
+                                    {progress >= 95 && "Completing deep scan..."}
                                 </p>
+
+                                {((elapsedTime > 45) || (progress >= 95 && elapsedTime > 10)) && (
+                                    <div className="pt-2 text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                        <p className="text-[10px] text-muted-foreground mb-2">Deep forensic analysis is running in the background.</p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-[10px] px-2 border-blue-500/30 hover:bg-blue-500/5 text-blue-500"
+                                            onClick={() => router.push('/transactions')}
+                                        >
+                                            View Transactions While We Finish
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -272,6 +368,23 @@ export function FileUpload({ onUpload }: FileUploadProps) {
                     </CardContent>
                 </Card>
             )}
+            {/* Exit Prevention Modal */}
+            <Dialog open={showExitModal} onOpenChange={setShowExitModal}>
+                <DialogContent className="sm:max-w-[425px] bg-slate-950 border-slate-800">
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Analysis in Progress</DialogTitle>
+                        <DialogDescription className="text-slate-400">
+                            Please do not exit or cancel while the AI is performing forensic analysis.
+                            Interrupting this process may lead to incomplete data.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end">
+                        <Button onClick={() => setShowExitModal(false)} className="bg-blue-600 hover:bg-blue-700">
+                            Got it, I'll wait
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -7,15 +7,15 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { DashboardHero } from '@/components/DashboardHero';
 
+import { AIInsightsDashboard } from '@/components/AIInsightsDashboard';
+import { InvestmentPortfolio } from '@/components/InvestmentPortfolio';
+
 // Lazy load components
 import { InsightSkeleton, ChartSkeleton, StatsSkeleton } from '@/components/LoadingSkeletons';
 
 // ... (keep existing lazy loads)
 
-const AIInsights = dynamic(() => import('@/components/AIInsights').then(mod => ({ default: mod.AIInsights })), {
-    loading: () => <InsightSkeleton />,
-    ssr: false,
-});
+// AIInsightsDashboard is imported directly
 
 const SpendingForecast = dynamic(() => import('@/components/SpendingForecast').then(mod => ({ default: mod.SpendingForecast })), {
     loading: () => <ChartSkeleton />,
@@ -193,11 +193,9 @@ function InsightsContent() {
 
                 {/* Left Column */}
                 <div className="space-y-6 w-full">
-                    {/* AI Insights */}
+                    {/* AI Smart Insights */}
                     <div className="w-full">
-                        <Suspense fallback={<InsightSkeleton />}>
-                            <AIInsights transactions={filteredTransactions} />
-                        </Suspense>
+                        <AIInsightsDashboard transactions={filteredTransactions} />
                     </div>
 
                     {/* Subscription Tracker */}

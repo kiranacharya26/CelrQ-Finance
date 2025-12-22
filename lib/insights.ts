@@ -147,11 +147,9 @@ export function detectAnomalies(
 ): Alert[] {
     const alerts: Alert[] = [];
 
-    // Parse current month to get previous months
+    // 1. Category Deviation
     const [year, month] = currentMonth.split('-').map(Number);
     const months: string[] = [currentMonth];
-
-    // Get last 3 months for comparison
     for (let i = 1; i < 4; i++) {
         const date = new Date(year, month - 1 - i, 1);
         months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
@@ -164,22 +162,18 @@ export function detectAnomalies(
     const currentTransactions = transactionsByMonth[0];
     const historicalTransactions = transactionsByMonth.slice(1).flat();
 
-    // Calculate average per category
     const historicalByCategory: Record<string, number[]> = {};
     historicalTransactions.forEach(t => {
-        const amount = parseAmount(t['Withdrawal Amt.'] || t.withdrawal || t.debit || 0);
+        const amount = parseAmount(t.amount || t.withdrawal || t.debit || 0);
         if (t.category && amount > 0) {
-            if (!historicalByCategory[t.category]) {
-                historicalByCategory[t.category] = [];
-            }
+            if (!historicalByCategory[t.category]) historicalByCategory[t.category] = [];
             historicalByCategory[t.category].push(amount);
         }
     });
 
-    // Check current month against averages
     const currentByCategory: Record<string, number> = {};
     currentTransactions.forEach(t => {
-        const amount = parseAmount(t['Withdrawal Amt.'] || t.withdrawal || t.debit || 0);
+        const amount = parseAmount(t.amount || t.withdrawal || t.debit || 0);
         if (t.category && amount > 0) {
             currentByCategory[t.category] = (currentByCategory[t.category] || 0) + amount;
         }
@@ -191,39 +185,57 @@ export function detectAnomalies(
             const average = historical.reduce((a, b) => a + b, 0) / historical.length;
             const deviation = ((currentAmount - average) / average) * 100;
 
-            if (deviation > 30) {
+            if (deviation > 40) {
                 alerts.push({
                     type: 'warning',
-                    message: `${category} spending is ${Math.round(deviation)}% higher than usual`,
+                    message: `${category} spending is ${Math.round(deviation)}% higher than your 3-month average.`,
                     category,
                 });
             }
+        } else if (currentAmount > 2000) {
+            // First time spending in this category
+            alerts.push({
+                type: 'info',
+                message: `First significant spend in ${category} detected this month.`,
+                category,
+            });
         }
     });
 
-    // Check for unusually large transactions
-    const allAmounts = currentTransactions.map(t =>
-        parseAmount(t['Withdrawal Amt.'] || t.withdrawal || t.debit || 0)
-    ).filter(a => a > 0);
+    // 2. Double Payment Detection
+    const seenTxs = new Map<string, number>();
+    currentTransactions.forEach(t => {
+        const amount = parseAmount(t.amount || 0);
+        if (amount > 100) {
+            const key = `${t.date}-${amount}-${t.merchant_name || t.description}`;
+            if (seenTxs.has(key)) {
+                alerts.push({
+                    type: 'warning',
+                    message: `Potential double payment of ₹${amount.toLocaleString('en-IN')} to ${t.merchant_name || 'merchant'} detected.`,
+                    category: t.category
+                });
+            }
+            seenTxs.set(key, (seenTxs.get(key) || 0) + 1);
+        }
+    });
 
+    // 3. Large Transaction Alert
+    const allAmounts = currentTransactions.map(t => parseAmount(t.amount || 0)).filter(a => a > 0);
     if (allAmounts.length > 0) {
         const average = allAmounts.reduce((a, b) => a + b, 0) / allAmounts.length;
-        const largeTransactions = currentTransactions.filter(t => {
-            const amount = parseAmount(t['Withdrawal Amt.'] || t.withdrawal || t.debit || 0);
-            return amount > average * 2;
-        });
-
-        largeTransactions.forEach(t => {
-            const amount = parseAmount(t['Withdrawal Amt.'] || t.withdrawal || t.debit || 0);
-            alerts.push({
-                type: 'info',
-                message: `Unusual transaction: ₹${amount.toLocaleString('en-IN')} in ${t.category || 'Other'}`,
-                category: t.category,
-            });
+        currentTransactions.forEach(t => {
+            const amount = parseAmount(t.amount || 0);
+            if (amount > average * 5 && amount > 5000) {
+                alerts.push({
+                    type: 'info',
+                    message: `Large transaction: ₹${amount.toLocaleString('en-IN')} at ${t.merchant_name || t.description}.`,
+                    category: t.category,
+                });
+            }
         });
     }
 
-    return alerts.slice(0, 3); // Return top 3 alerts
+    return alerts.slice(0, 5);
 }
 
 // Generate predictions

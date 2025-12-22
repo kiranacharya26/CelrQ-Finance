@@ -13,6 +13,8 @@ import { TransactionsHeader } from '@/components/transactions/TransactionsHeader
 import { TransactionStats } from '@/components/transactions/TransactionStats';
 import { TransactionFilters } from '@/components/transactions/TransactionFilters';
 import { DateRange } from '@/types';
+import { supabase } from '@/lib/supabase';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 import { TransactionsSkeleton, TableSkeleton, StatsSkeleton } from '@/components/LoadingSkeletons';
 
@@ -25,6 +27,36 @@ const TransactionTable = dynamic(() => import('@/components/TransactionTable').t
 function TransactionsContent() {
     const { userEmail, isAuthenticated } = useAuth();
     const [selectedBank, setSelectedBank] = useState<string>('all');
+    const [activeUpload, setActiveUpload] = useState<any>(null);
+
+    // Poll for active uploads
+    useEffect(() => {
+        if (!userEmail) return;
+
+        const checkUploads = async () => {
+            const { data, error } = await supabase
+                .from('uploads')
+                .select('*')
+                .eq('user_email', userEmail)
+                .eq('status', 'processing')
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (data && data.length > 0) {
+                setActiveUpload(data[0]);
+            } else {
+                if (activeUpload) {
+                    // If it was processing and now it's done, refresh transactions
+                    refresh();
+                }
+                setActiveUpload(null);
+            }
+        };
+
+        checkUploads();
+        const interval = setInterval(checkUploads, 3000);
+        return () => clearInterval(interval);
+    }, [userEmail, activeUpload]);
 
     const { transactions, availableBanks, loading, refresh } = useTransactions({
         userEmail,
@@ -172,7 +204,27 @@ function TransactionsContent() {
 
     return (
         <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6 max-w-7xl mx-auto w-full">
-            {/* Header */}
+            {activeUpload && (
+                <Card className="p-4 bg-blue-500/10 border-blue-500/20 flex items-center justify-between animate-in fade-in slide-in-from-top-4 duration-500 mb-6">
+                    <div className="flex items-center gap-3">
+                        <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                        <div>
+                            <p className="text-sm font-medium text-blue-500">
+                                AI Forensic Analysis in Progress...
+                            </p>
+                            <p className="text-xs text-blue-500/70">
+                                Scanning {activeUpload.processed_count} / {activeUpload.transaction_count} rows. Your dashboard will update automatically.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <span className="text-sm font-bold text-blue-500">
+                            {Math.round((activeUpload.processed_count / activeUpload.transaction_count) * 100)}%
+                        </span>
+                    </div>
+                </Card>
+            )}
+
             <TransactionsHeader
                 selectedBank={selectedBank}
                 onBankChange={setSelectedBank}
@@ -214,11 +266,6 @@ function TransactionsContent() {
                 <TransactionTable
                     transactions={filteredTransactions}
                     onCategoryChange={handleCategoryChange}
-                    currentCategoryFilter={filters.categoryFilter}
-                    onCategoryFilterChange={setCategoryFilter}
-                    currentTypeFilter={filters.typeFilter}
-                    onTypeFilterChange={setTypeFilter}
-                    uniqueCategories={uniqueCategories}
                 />
             </Suspense>
         </div>

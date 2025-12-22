@@ -41,7 +41,7 @@ export const MERCHANT_LOGOS: Record<string, MerchantInfo> = {
     'phonepe': { name: 'PhonePe', color: '#5F259F', icon: '💰', category: 'Other' },
     'gpay': { name: 'Google Pay', color: '#4285F4', icon: '💸', category: 'Other' },
     'googlepay': { name: 'Google Pay', color: '#4285F4', icon: '💸', category: 'Other' },
-    'cred': { name: 'CRED', color: '#0F0F0F', icon: '💳', category: 'Credit Card Payments' },
+    'cred': { name: 'CRED', color: '#0F0F0F', icon: '💳', category: 'Other' },
     'mobikwik': { name: 'MobiKwik', color: '#D91E36', icon: '💰', category: 'Other' },
 
     // Transport
@@ -102,65 +102,10 @@ export const CATEGORY_ICONS: Record<string, { icon: string; color: string }> = {
     'Healthcare': { icon: '⚕️', color: '#00A3E0' },
     'Utilities': { icon: '⚡', color: '#FFC107' },
     'Credit Card Payments': { icon: '💳', color: '#9E9E9E' },
-    'Other': { icon: '📌', color: '#9E9E9E' },
+    'Automotive': { icon: '🚗', color: '#546E7A' },
+    'Shopping': { icon: '🛍️', color: '#EC407A' },
+    'Other': { icon: '�', color: '#9E9E9E' },
 };
-
-/**
- * Extract merchant name from transaction narration
- * Handles UPI format: UPI-MERCHANT-UPI_ID-BANK-REF
- */
-export function extractMerchantName(narration: string): string {
-    if (!narration) return '';
-
-    const lower = narration.toLowerCase();
-
-    // Check for UPI format
-    if (lower.includes('upi-')) {
-        const parts = narration.split('-');
-        if (parts.length >= 2) {
-            let merchant = parts[1].trim();
-
-            // Clean up merchant name
-            merchant = merchant
-                .replace(/CO$/i, '')
-                .replace(/PVT$/i, '')
-                .replace(/LTD$/i, '')
-                .replace(/INC$/i, '')
-                .replace(/\d+$/i, '')
-                .trim();
-
-            return merchant;
-        }
-    }
-
-    // For non-UPI, try to extract first meaningful word
-    const words = narration.split(/[\s-]+/).filter(w => w.length > 3);
-    return words.length > 0 ? words[0] : '';
-}
-
-/**
- * Get merchant information including logo, color, and category
- */
-export function getMerchantInfo(narration: string): MerchantInfo | null {
-    const merchantName = extractMerchantName(narration);
-    if (!merchantName) return null;
-
-    const lower = merchantName.toLowerCase();
-
-    // Check exact match first
-    if (MERCHANT_LOGOS[lower]) {
-        return MERCHANT_LOGOS[lower];
-    }
-
-    // Check partial matches
-    for (const [key, info] of Object.entries(MERCHANT_LOGOS)) {
-        if (lower.includes(key) || key.includes(lower)) {
-            return info;
-        }
-    }
-
-    return null;
-}
 
 /**
  * Get category icon and color
@@ -171,28 +116,36 @@ export function getCategoryIcon(category: string): { icon: string; color: string
 
 /**
  * Get display info for a transaction (merchant or category fallback)
+ * This is used for UI display only.
  */
 export function getTransactionDisplayInfo(
     narration: string,
     category: string
 ): { name: string; icon: string; color: string; subtitle: string } {
-    const merchantInfo = getMerchantInfo(narration);
+    const lower = (narration || '').toLowerCase();
 
-    if (merchantInfo) {
+    // Simple lookup in MERCHANT_LOGOS
+    let foundInfo: MerchantInfo | null = null;
+    for (const [key, info] of Object.entries(MERCHANT_LOGOS)) {
+        if (lower.includes(key)) {
+            foundInfo = info;
+            break;
+        }
+    }
+
+    if (foundInfo) {
         return {
-            name: merchantInfo.name,
-            icon: merchantInfo.icon,
-            color: merchantInfo.color,
-            subtitle: category || merchantInfo.category || 'Other',
+            name: foundInfo.name,
+            icon: foundInfo.icon,
+            color: foundInfo.color,
+            subtitle: category || foundInfo.category || 'Other',
         };
     }
 
     // Fallback to category
     const categoryInfo = getCategoryIcon(category);
-    const merchantName = extractMerchantName(narration);
-
     return {
-        name: merchantName || category || 'Transaction',
+        name: narration || category || 'Transaction',
         icon: categoryInfo.icon,
         color: categoryInfo.color,
         subtitle: category || 'Other',
