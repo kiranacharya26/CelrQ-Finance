@@ -18,19 +18,26 @@ export async function GET(req: Request) {
 
         const { searchParams } = new URL(req.url);
         const email = searchParams.get("email");
+        const userId = searchParams.get("userId");
 
-        if (!email) {
+        if (!email && !userId) {
             return NextResponse.json({
-                error: "Email required"
+                error: "Email or User ID required"
             }, { status: 400 });
         }
 
         // Fetch payment details for this user
-        const { data, error } = await supabase
-            .from("payments")
-            .select("*")
-            .ilike("email", email)
-            .eq("status", "PAID")
+        let query = supabase.from("payments").select("*").in("status", ["PAID", "SUCCESS"]);
+
+        if (userId && email) {
+            query = query.or(`user_id.eq.${userId},email.ilike.${email}`);
+        } else if (userId) {
+            query = query.eq("user_id", userId);
+        } else if (email) {
+            query = query.ilike("email", email);
+        }
+
+        const { data, error } = await query
             .order("created_at", { ascending: false })
             .limit(1)
             .single();

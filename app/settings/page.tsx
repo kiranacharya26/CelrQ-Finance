@@ -26,7 +26,7 @@ import { toast } from 'sonner';
 
 
 function SettingsContent() {
-    const { userEmail, isAuthenticated } = useAuth();
+    const { userEmail, isAuthenticated, session } = useAuth();
     const { transactions } = useTransactions({ userEmail, selectedBank: 'all' });
     const router = useRouter();
 
@@ -118,16 +118,22 @@ function SettingsContent() {
         const fetchPaymentDetails = async () => {
             if (userEmail) {
                 try {
-                    const res = await fetch(`/api/payment/status?email=${userEmail}`);
+                    const userId = (session?.user as any)?.id || '';
+                    const res = await fetch(`/api/payment/status?email=${userEmail}&userId=${userId}`);
                     const data = await res.json();
-                    setIsPremium(data.hasPaid || false);
+
+                    // hasPaid in API means "has access" (either trial or paid)
+                    // We want to know if they actually paid
+                    const actuallyPaid = data.hasPaid && !data.isTrial;
+
+                    setIsPremium(actuallyPaid);
                     setIsTrial(data.isTrial || false);
                     setTrialDays(data.trialDaysRemaining || 0);
                     setWasPremium(data.wasPremium || false);
 
                     // Fetch full payment details from payments table
-                    if (data.hasPaid && !data.isTrial) {
-                        const detailsRes = await fetch(`/api/payment/details?email=${userEmail}`);
+                    if (actuallyPaid) {
+                        const detailsRes = await fetch(`/api/payment/details?email=${userEmail}&userId=${userId}`);
                         if (detailsRes.ok) {
                             const details = await detailsRes.json();
                             setPaymentDetails(details);
@@ -189,22 +195,21 @@ function SettingsContent() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-2xl font-bold mb-2">
-                                    {isTrial ? 'Free Trial Active' : (isPremium ? 'ClerQ Premium' : 'ClerQ')}
+                                    {isPremium ? 'ClerQ Premium' : (isTrial ? 'Free Trial Active' : 'ClerQ')}
                                 </h2>
                                 <p className={isExpiringSoon ? 'text-white font-medium' : 'text-indigo-100'}>
-                                    {isTrial
-                                        ? `You have ${trialDays} days remaining in your trial`
-                                        : (isExpiringSoon
+                                    {isPremium
+                                        ? (isExpiringSoon
                                             ? `⚠️ Your subscription expires in ${subscriptionDaysRemaining} days!`
-                                            : (isPremium
-                                                ? 'Full access to all features'
-                                                : (wasPremium ? 'Renew your subscription to regain access' : 'Start your 7-day free trial')
-                                            )
+                                            : 'Full access to all features')
+                                        : (isTrial
+                                            ? `You have ${trialDays} days remaining in your trial`
+                                            : (wasPremium ? 'Renew your subscription to regain access' : 'Start your 7-day free trial')
                                         )
                                     }
                                 </p>
                             </div>
-                            {isPremium && !isTrial && !isExpiringSoon && (
+                            {isPremium && !isExpiringSoon && (
                                 <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur">
                                     <Crown className="h-6 w-6" />
                                     <span className="font-semibold text-lg">Active</span>
@@ -216,7 +221,7 @@ function SettingsContent() {
                                     <span className="font-semibold text-lg">Expiring Soon</span>
                                 </div>
                             )}
-                            {isTrial && (
+                            {!isPremium && isTrial && (
                                 <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur">
                                     <span className="text-2xl">⏳</span>
                                     <span className="font-semibold text-lg">{trialDays} Days Left</span>
@@ -351,7 +356,9 @@ function SettingsContent() {
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">Status</label>
-                                <p className="text-base mt-1 font-medium">{isPremium ? 'Premium Member' : 'Free Plan'}</p>
+                                <p className="text-base mt-1 font-medium">
+                                    {isPremium ? 'Premium Member' : (isTrial ? 'Trial Member' : 'Free Plan')}
+                                </p>
                             </div>
                         </div>
                     </div>
