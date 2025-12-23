@@ -116,8 +116,16 @@ export function DashboardHeader({
                                     });
 
                                     if (!response.ok) {
-                                        const errorData = await response.json();
-                                        throw new Error(errorData.error || 'Upload failed');
+                                        const text = await response.text();
+                                        let errorMessage = 'Upload failed';
+                                        try {
+                                            const json = JSON.parse(text);
+                                            errorMessage = json.error || errorMessage;
+                                        } catch (e) {
+                                            // If not JSON, use the text (truncated) or status text
+                                            errorMessage = text.slice(0, 100) || response.statusText;
+                                        }
+                                        throw new Error(`Server Error (${response.status}): ${errorMessage}`);
                                     }
 
                                     // Refresh context to update transactions and charts

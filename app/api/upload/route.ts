@@ -230,6 +230,11 @@ export async function POST(request: Request) {
         const buffer = Buffer.from(await file.arrayBuffer());
         console.log(`📤 Upload started: ${file.name} (${(file.size / 1024).toFixed(2)}KB)`);
 
+        // Check file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            return NextResponse.json({ error: 'File size exceeds 10MB limit' }, { status: 400 });
+        }
+
         // Calculate MD5 hash of the file content
         const fileHash = md5Hex(buffer.toString('binary'));
         console.log(`🔐 File Hash: ${fileHash}`);
