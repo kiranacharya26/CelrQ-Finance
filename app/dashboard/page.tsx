@@ -198,7 +198,7 @@ function DashboardContent() {
                 const userId = (session?.user as any)?.id || '';
                 const res = await fetch(`/api/payment/status?email=${userEmail}&userId=${userId}`);
                 const data = await res.json();
-                if (data.isTrial) {
+                if (data.isTrial && !data.isPremium) {
                     setTrialInfo({ isTrial: true, daysRemaining: data.trialDaysRemaining });
                 } else {
                     setTrialInfo(null);

@@ -150,10 +150,14 @@ export function FileUpload({ onUpload }: FileUploadProps) {
             setProgress(100);
             setEstimatedTimeRemaining(0);
             if (userEmail) UserStorage.saveData(userEmail, 'current_upload', null);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Upload failed', error);
             clearInterval(timerInterval);
             if (userEmail) UserStorage.saveData(userEmail, 'current_upload', null);
+
+            // Show specific error message
+            const message = error.message || 'Failed to upload file';
+            alert(`Upload Error: ${message}`);
         } finally {
             setIsUploading(false);
         }

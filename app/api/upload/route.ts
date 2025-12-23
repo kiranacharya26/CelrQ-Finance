@@ -389,8 +389,16 @@ export async function POST(request: Request) {
             rawTransactions = [{ description: rawText, date: new Date().toISOString().split('T')[0], amount: 0 }];
         } else if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
             rawTransactions = await parseCSV(buffer.toString('utf-8'));
-        } else {
+        } else if (
+            file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+            file.type === 'application/vnd.ms-excel' ||
+            file.name.endsWith('.xlsx') ||
+            file.name.endsWith('.xls')
+        ) {
             rawTransactions = await parseExcel(buffer);
+        } else {
+            console.warn('Unsupported file type:', file.type);
+            return NextResponse.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 });
         }
 
         // 3. Fingerprint and Check for Manual Overrides
@@ -452,9 +460,6 @@ export async function POST(request: Request) {
         await storeTransactions(finalTransactions, userEmail, bankName, file.name, fileHash, uploadId);
         return NextResponse.json({ transactions: finalTransactions, newlyLearnedKeywords });
 
-        // ---------- UNSUPPORTED ----------
-        console.warn('Unsupported file type:', file.type);
-        return NextResponse.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 });
     } catch (error) {
         console.error('Upload error:', error);
         const isDev = process.env.NODE_ENV === 'development';
