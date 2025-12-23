@@ -101,7 +101,7 @@ function groupByCategory(transactions: Transaction[]): Record<string, Transactio
     transactions.forEach(t => {
         if (t.type !== 'expense') return;
 
-        const category = t.category || 'Uncategorized';
+        const category = t.category || 'Other';
         if (!groups[category]) groups[category] = [];
         groups[category].push(t);
     });

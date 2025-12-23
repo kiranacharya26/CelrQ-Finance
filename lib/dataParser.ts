@@ -94,7 +94,7 @@ export function parseCategory(transaction: any, categoryKey?: string): string {
         return String(transaction[descKey]).split(' ').slice(0, 2).join(' ');
     }
 
-    return 'Uncategorized';
+    return 'Other';
 }
 
 /**

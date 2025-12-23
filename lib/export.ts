@@ -57,7 +57,7 @@ export function exportToPDF(transactions: Transaction[]) {
     const tableData = transactions.map(t => [
         t.date || '',
         t.description || t.narration || t.particulars || '',
-        t.category || 'Uncategorized',
+        t.category || 'Other',
         `₹${parseAmount(t.amount || t.withdrawal || t.debit).toFixed(2)}`
     ]);
 

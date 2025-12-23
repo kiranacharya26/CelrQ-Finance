@@ -109,7 +109,7 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
             const tMonth = tDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
             if (tMonth === currentMonth && t.type === 'expense') {
-                const cat = t.category || 'Uncategorized';
+                const cat = t.category || 'Other';
                 const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : (t.amount || 0);
                 spending[cat] = (spending[cat] || 0) + amount;
             }

@@ -94,7 +94,7 @@ export function ChatInterface() {
             transactions
                 .filter(t => t.type === 'expense')
                 .forEach(t => {
-                    const cat = t.category || 'Uncategorized';
+                    const cat = t.category || 'Other';
                     expensesByCategory[cat] = (expensesByCategory[cat] || 0) + (Number(t.amount) || 0);
                 });
 
@@ -114,7 +114,7 @@ export function ChatInterface() {
                     date: t.date,
                     description: t.description || t.Narration,
                     amount: Number(t.amount) || Number(t['Withdrawal Amt.']) || Number(t.withdrawal) || 0,
-                    category: t.category || 'Uncategorized'
+                    category: t.category || 'Other'
                 })),
                 goals: goals.map(g => ({
                     name: g.name,

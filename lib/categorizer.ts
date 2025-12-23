@@ -131,8 +131,8 @@ export async function categorizeTransactions(
 
         // If category is missing or "Other", mark it for AI
         let currentCategory = t.category;
-        if (!currentCategory || currentCategory === 'Other' || currentCategory === 'Uncategorized' || currentCategory === '-') {
-            currentCategory = 'Uncategorized';
+        if (!currentCategory || currentCategory === 'Other' || currentCategory === '-') {
+            currentCategory = 'Other';
         }
 
         return {
@@ -149,12 +149,12 @@ export async function categorizeTransactions(
 
     processedTransactions.forEach(t => {
         // Skip if already categorized by a previous step
-        if (t.category && t.category !== 'Other' && t.category !== 'Uncategorized' && t.category !== '-') return;
+        if (t.category && t.category !== 'Other' && t.category !== '-') return;
 
         const desc = t._cleanedDesc.toLowerCase();
         for (const [category, keywords] of Object.entries(memoryBank)) {
             // CRITICAL: Skip 'Other' in local matching. If it's not a clear match, let the AI handle it.
-            if (category === 'Other' || category === 'Uncategorized') continue;
+            if (category === 'Other') continue;
 
             for (const keyword of keywords) {
                 const kw = keyword.toLowerCase();
@@ -170,12 +170,12 @@ export async function categorizeTransactions(
                     break;
                 }
             }
-            if (t.category !== 'Uncategorized') break;
+            if (t.category !== 'Other') break;
         }
     });
 
     // 3. Identify transactions that still need AI
-    const needsAI = processedTransactions.filter(t => t.category === 'Other' || t.category === 'Uncategorized');
+    const needsAI = processedTransactions.filter(t => t.category === 'Other');
     console.log(`🧠 Local matching complete. ${needsAI.length} transactions need AI analysis.`);
 
     if (needsAI.length === 0 || !openai) {
@@ -200,7 +200,7 @@ export async function categorizeTransactions(
     }));
 
     // 5. Call OpenAI in Parallel
-    const BATCH_SIZE = 50; // Increased batch size
+    const BATCH_SIZE = 100; // Increased batch size to reduce prompt overhead
     const batches = [];
     for (let i = 0; i < itemsToCategorize.length; i += BATCH_SIZE) {
         batches.push(itemsToCategorize.slice(i, i + BATCH_SIZE));
@@ -253,7 +253,7 @@ ${JSON.stringify(batch)}`;
 
         try {
             const response = await openai!.chat.completions.create({
-                model: "gpt-4o",
+                model: "gpt-4o-mini",
                 messages: [
                     { role: "system", content: "You are a forensic financial analyst. You analyze raw bank narrations to identify merchants and categories with extreme precision." },
                     { role: "user", content: prompt }

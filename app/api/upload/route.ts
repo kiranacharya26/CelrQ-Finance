@@ -78,7 +78,7 @@ const sanitizeTransaction = (raw: any, userEmail: string, bankName: string, uplo
         description: description,
         amount: amount,
         type: type,
-        category: raw.category || 'Uncategorized',
+        category: raw.category || 'Other',
         merchant_name: raw.merchant_name || '',
         bank_name: bankName || raw.bank_name || '',
         upload_id: uploadId,
@@ -424,7 +424,7 @@ export async function POST(request: Request) {
         // 5. Final Merge and Store
         const finalTransactions = transactionsForAI.map((t, i) => ({
             ...t,
-            category: categorized[i]?.category ?? t.category ?? 'Uncategorized',
+            category: categorized[i]?.category ?? t.category ?? 'Other',
             merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
         }));
 
