@@ -298,6 +298,23 @@ ${JSON.stringify(batch)}`;
                     .update({ processed_count: completedItems })
                     .eq('id', uploadId);
             }
+            // Log Usage for Admin Dashboard
+            if (response.usage && userEmail) {
+                const { prompt_tokens, completion_tokens, total_tokens } = response.usage;
+                // gpt-4o-mini pricing: $0.15 / 1M input, $0.60 / 1M output
+                const cost = (prompt_tokens * 0.15 / 1000000) + (completion_tokens * 0.60 / 1000000);
+
+                await supabaseAdmin.from('usage_logs').insert({
+                    user_email: userEmail,
+                    feature: 'categorization',
+                    model: 'gpt-4o-mini',
+                    prompt_tokens,
+                    completion_tokens,
+                    total_tokens,
+                    estimated_cost_usd: cost
+                });
+            }
+
             console.log(`📦 Batch ${batchIdx + 1}/${batches.length} complete (${completedItems}/${itemsToCategorize.length} items)`);
         } catch (error) {
             console.error(`❌ Error in AI batch ${batchIdx + 1}:`, error);

@@ -121,7 +121,8 @@ export function ChatInterface() {
                     currentAmount: g.currentAmount,
                     targetAmount: g.targetAmount,
                     deadline: g.targetDate
-                }))
+                })),
+                userEmail: session?.user?.email
             };
 
             // 2. Call API

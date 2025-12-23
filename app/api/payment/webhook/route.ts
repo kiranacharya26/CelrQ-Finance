@@ -21,38 +21,37 @@ export async function POST(req: Request) {
             process.env.SUPABASE_SERVICE_ROLE_KEY
         );
 
-        const signature = req.headers.get("x-cf-signature") ?? "";
-        const rawBody = await req.text(); // raw string for signature verification
+        const signature = req.headers.get("x-webhook-signature") ?? "";
+        const timestamp = req.headers.get("x-webhook-timestamp") ?? "";
+        const rawBody = await req.text();
 
-        // Verify signature using the secret key from env
-        if (!process.env.CASHFREE_SECRET_KEY) {
-            console.error("Missing CASHFREE_SECRET_KEY");
+        const webhookSecret = process.env.CASHFREE_WEBHOOK_SECRET || process.env.CASHFREE_SECRET_KEY;
+
+        if (!webhookSecret) {
+            console.error("Missing CASHFREE_WEBHOOK_SECRET or CASHFREE_SECRET_KEY");
             return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
         }
 
+        // Verify signature: HMAC-SHA256(timestamp + rawBody, secret)
+        const dataToVerify = timestamp + rawBody;
         const expected = crypto
-            .createHmac("sha256", process.env.CASHFREE_SECRET_KEY)
-            .update(rawBody)
-            .digest("hex");
+            .createHmac("sha256", webhookSecret)
+            .update(dataToVerify)
+            .digest("base64");
 
-        console.log("Webhook Debug:", {
-            receivedSignature: signature,
-            computedSignature: expected,
-            rawBodyLength: rawBody.length,
-            secretKeyLength: process.env.CASHFREE_SECRET_KEY.length
+        console.log("Webhook Verification:", {
+            received: signature,
+            expected: expected,
+            timestamp: timestamp
         });
 
         if (signature !== expected) {
-            console.warn("Cashfree webhook signature mismatch");
-            // TEMPORARY: Allow it for debugging if needed, but for now keep returning 400
-            // return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+            console.warn("Cashfree webhook signature mismatch!");
+            return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
         }
 
         const payload = JSON.parse(rawBody);
-
-        // Cashfree webhook structure is nested: data -> order -> ...
-        // Or sometimes directly at root depending on event type.
-        // Let's try to extract safely.
+        const eventType = payload.type;
         const data = payload.data || payload;
         const order = data.order || data;
         const payment = data.payment || {};
@@ -61,17 +60,21 @@ export async function POST(req: Request) {
         const order_id = order.order_id;
         const order_amount = order.order_amount;
         const order_currency = order.order_currency;
-        const order_status = payment.payment_status || order.order_status; // Payment status is more granular
 
-        // Normalize status
-        let normalizedStatus = order_status;
-        if (order_status === "SUCCESS" || order_status === "ACTIVE") {
+        // Determine status based on event type
+        let normalizedStatus = "PENDING";
+        if (eventType === "PAYMENT_SUCCESS_WEBHOOK" || eventType === "ORDER_PAID_WEBHOOK") {
             normalizedStatus = "PAID";
-        } else if (order_status === "FAILED" || order_status === "CANCELLED") {
+        } else if (eventType === "PAYMENT_FAILED_WEBHOOK" || eventType === "ORDER_FAILED_WEBHOOK") {
             normalizedStatus = "FAILED";
+        } else {
+            // Fallback to payment_status if type is unknown
+            const pStatus = payment.payment_status || order.order_status;
+            if (pStatus === "SUCCESS") normalizedStatus = "PAID";
+            else if (pStatus === "FAILED") normalizedStatus = "FAILED";
         }
 
-        console.log(`Webhook received: order_id=${order_id}, status=${order_status} -> ${normalizedStatus}`);
+        console.log(`[Webhook] Event: ${eventType}, Order: ${order_id}, Status: ${normalizedStatus}`);
 
         if (!order_id) {
             console.error("Missing order_id in webhook payload:", JSON.stringify(payload));

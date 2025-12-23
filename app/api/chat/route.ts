@@ -47,6 +47,24 @@ INSTRUCTIONS:
 
         const reply = response.choices[0].message.content;
 
+        // Log Usage for Admin Dashboard
+        if (response.usage && context.userEmail) {
+            const { prompt_tokens, completion_tokens, total_tokens } = response.usage;
+            // gpt-4o-mini pricing: $0.15 / 1M input, $0.60 / 1M output
+            const cost = (prompt_tokens * 0.15 / 1000000) + (completion_tokens * 0.60 / 1000000);
+
+            const { supabaseAdmin } = await import('@/lib/supabase');
+            await supabaseAdmin.from('usage_logs').insert({
+                user_email: context.userEmail,
+                feature: 'chat',
+                model: 'gpt-4o-mini',
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+                estimated_cost_usd: cost
+            });
+        }
+
         return NextResponse.json({
             role: 'assistant',
             content: reply,

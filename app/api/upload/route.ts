@@ -422,11 +422,15 @@ export async function POST(request: Request) {
         await saveNewRules(newlyLearnedKeywords);
 
         // 5. Final Merge and Store
-        const finalTransactions = transactionsForAI.map((t, i) => ({
-            ...t,
-            category: categorized[i]?.category ?? t.category ?? 'Other',
-            merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
-        }));
+        const finalTransactions = transactionsForAI.map((t, i) => {
+            const systemCategory = categorized[i]?.category ?? t.category ?? 'Other';
+            return {
+                ...t,
+                category: systemCategory,
+                ai_category: systemCategory, // Store the initial guess
+                merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
+            };
+        });
 
         await storeTransactions(finalTransactions, userEmail, bankName, file.name, fileHash, uploadId);
         return NextResponse.json({ transactions: finalTransactions, newlyLearnedKeywords });
