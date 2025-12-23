@@ -82,7 +82,6 @@ export function FileUpload({ onUpload }: FileUploadProps) {
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
         accept: {
-            'application/pdf': ['.pdf'],
             'text/csv': ['.csv'],
             'application/vnd.ms-excel': ['.xls'],
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
@@ -262,7 +261,7 @@ export function FileUpload({ onUpload }: FileUploadProps) {
                                 {selectedBank ? 'Drag & drop your statement here' : 'Select a bank account first'}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                                PDF, CSV or Excel (max 10MB)
+                                CSV or Excel (max 10MB)
                             </p>
                         </div>
                     </div>

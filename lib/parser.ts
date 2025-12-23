@@ -1,51 +1,6 @@
 import Papa from 'papaparse';
 import { Transaction } from '@/types';
 
-export async function parsePDF(buffer: Buffer): Promise<string> {
-    return new Promise((resolve, reject) => {
-        try {
-            const PDFParser = require('pdf2json');
-            const pdfParser = new PDFParser();
-
-            pdfParser.on('pdfParser_dataError', (errData: any) => {
-                console.error("PDF parsing error:", errData.parserError);
-                reject(new Error("Failed to parse PDF file. Please ensure the file is a valid PDF."));
-            });
-
-            pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
-                try {
-                    // Extract text from all pages
-                    let text = '';
-                    if (pdfData.Pages) {
-                        pdfData.Pages.forEach((page: any) => {
-                            if (page.Texts) {
-                                page.Texts.forEach((textItem: any) => {
-                                    if (textItem.R) {
-                                        textItem.R.forEach((run: any) => {
-                                            if (run.T) {
-                                                text += decodeURIComponent(run.T) + ' ';
-                                            }
-                                        });
-                                    }
-                                });
-                                text += '\n';
-                            }
-                        });
-                    }
-                    resolve(text);
-                } catch (error) {
-                    console.error("Error extracting text from PDF:", error);
-                    reject(new Error("Failed to extract text from PDF."));
-                }
-            });
-
-            pdfParser.parseBuffer(buffer);
-        } catch (error) {
-            console.error("PDF parser initialization error:", error);
-            reject(new Error("Failed to initialize PDF parser."));
-        }
-    });
-}
 
 export async function parseCSV(content: string): Promise<any[]> {
     return new Promise((resolve, reject) => {

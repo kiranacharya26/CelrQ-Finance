@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { parsePDF, parseCSV, parseExcel, parseDate } from '@/lib/parser';
+import { parseCSV, parseExcel, parseDate } from '@/lib/parser';
 import { categorizeTransactions } from '@/lib/categorizer';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
@@ -389,10 +389,9 @@ export async function POST(request: Request) {
 
         // 2. Parse and Pre-process
         let rawTransactions: any[] = [];
-        if (file.type === 'application/pdf') {
-            const rawText = await parsePDF(buffer);
-            rawTransactions = [{ description: rawText, date: new Date().toISOString().split('T')[0], amount: 0 }];
-        } else if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+
+        // PDF Support Removed as per user request to fix 502 errors
+        if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
             rawTransactions = await parseCSV(buffer.toString('utf-8'));
         } else if (
             file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
@@ -403,7 +402,7 @@ export async function POST(request: Request) {
             rawTransactions = await parseExcel(buffer);
         } else {
             console.warn('Unsupported file type:', file.type);
-            return NextResponse.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 });
+            return NextResponse.json({ error: `Unsupported file type: ${file.type}. Only CSV and Excel are supported.` }, { status: 400 });
         }
 
         // 3. Fingerprint and Check for Manual Overrides
