@@ -19,6 +19,10 @@ export default function CashfreePaymentButton({ amount, receiptId, customer, ret
     const [loading, setLoading] = useState(false);
 
     const handlePay = async () => {
+        console.log("--- Cashfree Payment Started ---");
+        const isProd = process.env.NEXT_PUBLIC_CASHFREE_USE_PRODUCTION === "true";
+        console.log("Mode:", isProd ? "production" : "sandbox");
+
         setLoading(true);
         try {
             // 1. Create Order on Server

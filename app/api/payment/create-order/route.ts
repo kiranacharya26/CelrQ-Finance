@@ -1,16 +1,36 @@
 import { NextResponse } from "next/server";
 import { Cashfree } from "cashfree-pg";
 
-// Configure Cashfree
-Cashfree.XClientId = process.env.NEXT_PUBLIC_CASHFREE_APP_ID!;
-Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
-Cashfree.XEnvironment = process.env.CASHFREE_USE_PRODUCTION === "true"
-    ? Cashfree.Environment.PRODUCTION
-    : Cashfree.Environment.SANDBOX;
-
 export async function POST(req: Request) {
+    const appId = (process.env.NEXT_PUBLIC_CASHFREE_APP_ID || "").trim();
+    const secretKey = (process.env.CASHFREE_SECRET_KEY || "").trim();
+    const isProd = process.env.NEXT_PUBLIC_CASHFREE_USE_PRODUCTION === "true";
+
+    // Configure Cashfree inside the handler
+    Cashfree.XClientId = appId;
+    Cashfree.XClientSecret = secretKey;
+    Cashfree.XEnvironment = isProd
+        ? Cashfree.Environment.PRODUCTION
+        : Cashfree.Environment.SANDBOX;
+
+    console.log("--- Cashfree Order Creation Started ---");
+    console.log("Environment:", isProd ? "PRODUCTION" : "SANDBOX");
+    console.log("App ID Present:", !!appId);
+    if (appId) {
+        console.log("App ID Prefix:", appId.substring(0, 4));
+    }
+    console.log("Secret Key Present:", !!secretKey);
+
+    if (!appId || !secretKey) {
+        console.error("Missing Cashfree credentials in environment variables");
+        return NextResponse.json({
+            error: "Cashfree credentials not configured. Please check your Netlify environment variables."
+        }, { status: 500 });
+    }
+
     try {
-        const { amount, receiptId, customer, returnUrl, planType } = await req.json();
+        const body = await req.json();
+        const { amount, receiptId, customer, returnUrl, planType } = body;
 
         // Determine amount based on plan type (Server-side validation)
         let orderAmount = 149;
@@ -25,8 +45,9 @@ export async function POST(req: Request) {
         }
 
         // Get origin for return_url
-        const origin = req.headers.get("origin") || "http://localhost:3000";
-        // Return to home page with payment success flag, which will verify and redirect to dashboard
+        const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clerq.finance";
+
+        // Return to home page with payment success flag
         const finalReturnUrl = returnUrl || `${origin}/?payment_status={order_status}&order_id={order_id}`;
 
         const orderPayload = {
@@ -35,10 +56,10 @@ export async function POST(req: Request) {
             order_currency: 'INR',
             order_note: receiptId || "",
             customer_details: {
-                customer_id: customer.id, // Assuming customer.id maps to userId
-                customer_name: customer.name || 'User', // Assuming customer.name maps to name
-                customer_email: customer.email, // Assuming customer.email maps to email
-                customer_phone: '9999999999'
+                customer_id: customer.id,
+                customer_name: customer.name || 'User',
+                customer_email: customer.email,
+                customer_phone: customer.phone || '9999999999'
             },
             order_meta: {
                 return_url: finalReturnUrl,
@@ -46,26 +67,29 @@ export async function POST(req: Request) {
             }
         };
 
-        // Use PGCreateOrder with correct version string
-        // Note: In some versions, it might be just createOrder or similar.
-        // Based on docs, it is PGCreateOrder("2023-08-01", ...)
-        // If that fails, we might need to check the SDK export.
-        // Let's try to instantiate if it's a class, or check the method name.
-        // Actually, the error says PGCreateOrder is not a function.
-        // This implies we might need to use the instance method or the static method is named differently.
+        console.log("Creating order with payload:", JSON.stringify(orderPayload, null, 2));
 
-        // Attempt to use the newer SDK pattern if available:
-        // const cashfree = new Cashfree({ ... });
-        // await cashfree.pg.createOrder(...)
-
-        // But since we are using the static configuration style:
         const response = await Cashfree.PGCreateOrder("2023-08-01", orderPayload);
 
+        console.log("Cashfree Response Status:", response.status);
         return NextResponse.json(response.data);
 
     } catch (err: any) {
         console.error("Cashfree order creation error:", err);
-        const msg = err?.response?.data?.message || err?.message || "Failed to create order";
+
+        // Log detailed error if available from Cashfree SDK
+        if (err.response) {
+            console.error("Cashfree Error Response Data:", JSON.stringify(err.response.data, null, 2));
+            console.error("Cashfree Error Response Status:", err.response.status);
+
+            const cashfreeError = err.response.data?.message || "Cashfree authentication or validation failed";
+            return NextResponse.json({
+                error: cashfreeError,
+                details: err.response.data
+            }, { status: err.response.status || 500 });
+        }
+
+        const msg = err?.message || "Failed to create order";
         return NextResponse.json({ error: msg }, { status: 500 });
     }
 }
