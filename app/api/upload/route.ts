@@ -435,34 +435,59 @@ export async function POST(request: Request) {
             console.warn('Error fetching manual overrides:', e);
         }
 
-        // Apply manual overrides before AI
-        const transactionsForAI = processedWithIds.map(t => {
+        // Apply manual overrides
+        const transactionsWithOverrides = processedWithIds.map(t => {
             if (manualOverrides.has(t.id)) {
-                return { ...t, category: manualOverrides.get(t.id) };
+                return { ...t, category: manualOverrides.get(t.id), is_manual_category: true };
             }
             return t;
         });
 
-        // 4. AI Categorization
-        console.time('🤖 AI categorization');
-        const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(transactionsForAI, learnedKeywords, userEmail, uploadId);
-        console.timeEnd('🤖 AI categorization');
+        // 4. Store transactions IMMEDIATELY with basic categories (to avoid 504 timeout)
+        console.log('💾 Storing transactions immediately...');
+        await storeTransactions(transactionsWithOverrides, userEmail, bankName, file.name, fileHash, uploadId);
 
-        await saveNewRules(newlyLearnedKeywords);
-
-        // 5. Final Merge and Store
-        const finalTransactions = transactionsForAI.map((t, i) => {
-            const systemCategory = categorized[i]?.category ?? t.category ?? 'Other';
-            return {
-                ...t,
-                category: systemCategory,
-                ai_category: systemCategory, // Store the initial guess
-                merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
-            };
+        // 5. Return SUCCESS immediately - AI will process in background
+        const response = NextResponse.json({
+            transactions: transactionsWithOverrides,
+            message: 'Upload successful. AI categorization is processing in the background.',
+            uploadId
         });
 
-        await storeTransactions(finalTransactions, userEmail, bankName, file.name, fileHash, uploadId);
-        return NextResponse.json({ transactions: finalTransactions, newlyLearnedKeywords });
+        // 6. Process AI categorization in background (fire and forget)
+        // This won't block the response
+        (async () => {
+            try {
+                console.log('🤖 Starting background AI categorization...');
+                const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(
+                    transactionsWithOverrides,
+                    learnedKeywords,
+                    userEmail,
+                    uploadId
+                );
+
+                // Update transactions with AI categories
+                const aiUpdates = categorized.map((t, i) => ({
+                    id: transactionsWithOverrides[i].id,
+                    category: t.category || 'Other',
+                    merchant_name: t.merchant_name || transactionsWithOverrides[i].merchant_name,
+                    ai_category: t.category || 'Other'
+                }));
+
+                // Batch update
+                for (let i = 0; i < aiUpdates.length; i += 1000) {
+                    const batch = aiUpdates.slice(i, i + 1000);
+                    await supabaseAdmin.from('transactions').upsert(batch, { onConflict: 'id' });
+                }
+
+                await saveNewRules(newlyLearnedKeywords);
+                console.log('✅ Background AI categorization complete');
+            } catch (error) {
+                console.error('❌ Background AI categorization failed:', error);
+            }
+        })();
+
+        return response;
 
     } catch (error) {
         console.error('Upload error:', error);
