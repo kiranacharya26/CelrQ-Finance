@@ -18,12 +18,17 @@ import {
     X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { UserStorage } from '@/lib/storage';
+import { useSession } from 'next-auth/react';
 
 interface InvestmentPortfolioProps {
     transactions: Transaction[];
 }
 
 export function InvestmentPortfolio({ transactions }: InvestmentPortfolioProps) {
+    const { data: session } = useSession();
+    const userEmail = session?.user?.email;
+
     const [summaries, setSummaries] = useState<Record<string, InvestmentSummary>>({});
     const [manualAdjustments, setManualAdjustments] = useState<Record<string, number>>({});
     const [editingCategory, setEditingCategory] = useState<string | null>(null);
@@ -33,18 +38,19 @@ export function InvestmentPortfolio({ transactions }: InvestmentPortfolioProps) 
         const detected = analyzeInvestments(transactions);
         setSummaries(detected);
 
-        // Load manual adjustments from localStorage if any
-        const saved = localStorage.getItem('cleryq_manual_investments');
-        if (saved) {
-            setManualAdjustments(JSON.parse(saved));
+        // Load manual adjustments from user-scoped storage
+        if (userEmail) {
+            const saved = UserStorage.getData(userEmail, 'manual_investments', {});
+            setManualAdjustments(saved);
         }
-    }, [transactions]);
+    }, [transactions, userEmail]);
 
     const handleSaveManual = (category: string) => {
+        if (!userEmail) return;
         const newVal = parseFloat(tempValue) || 0;
         const updated = { ...manualAdjustments, [category]: newVal };
         setManualAdjustments(updated);
-        localStorage.setItem('cleryq_manual_investments', JSON.stringify(updated));
+        UserStorage.saveData(userEmail, 'manual_investments', updated);
         setEditingCategory(null);
     };
 

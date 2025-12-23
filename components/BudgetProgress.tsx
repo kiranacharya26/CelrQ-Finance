@@ -4,6 +4,8 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { AlertCircle, Wallet } from 'lucide-react';
+import { UserStorage } from '@/lib/storage';
+import { useSession } from 'next-auth/react';
 
 interface BudgetProgressProps {
     transactions: any[];
@@ -16,12 +18,14 @@ interface Budget {
 }
 
 export function BudgetProgress({ transactions, selectedMonth }: BudgetProgressProps) {
-    const budgetData = useMemo(() => {
-        // Load budgets from localStorage
-        const savedBudgets = localStorage.getItem('budgets');
-        if (!savedBudgets) return [];
+    const { data: session } = useSession();
+    const userEmail = session?.user?.email;
 
-        const budgets: Budget[] = JSON.parse(savedBudgets);
+    const budgetData = useMemo(() => {
+        if (!userEmail) return [];
+        // Load budgets from user-scoped storage
+        const budgets = UserStorage.getData<Budget[]>(userEmail, 'budgets', []);
+        if (budgets.length === 0) return [];
 
         // Calculate spending per category
         return budgets.map(budget => {

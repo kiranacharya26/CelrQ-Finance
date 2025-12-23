@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { UserStorage } from '@/lib/storage';
+import { useSession } from 'next-auth/react';
 
 interface FileUploadProps {
     onUpload: (file: File, bankAccount: string) => Promise<void>;
@@ -28,14 +30,18 @@ export function FileUpload({ onUpload }: FileUploadProps) {
     const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
     const [showExitModal, setShowExitModal] = useState(false);
 
-    // Get saved bank accounts from localStorage
-    const [bankAccounts, setBankAccounts] = useState<string[]>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('bankAccounts');
-            return saved ? JSON.parse(saved) : ['HDFC Bank', 'ICICI Bank'];
+    const { data: session } = useSession();
+    const userEmail = session?.user?.email;
+
+    // Get saved bank accounts from user-scoped storage
+    const [bankAccounts, setBankAccounts] = useState<string[]>(['HDFC Bank', 'ICICI Bank']);
+
+    useEffect(() => {
+        if (userEmail) {
+            const saved = UserStorage.getData<string[]>(userEmail, 'bankAccounts', ['HDFC Bank', 'ICICI Bank']);
+            setBankAccounts(saved);
         }
-        return ['HDFC Bank', 'ICICI Bank'];
-    });
+    }, [userEmail]);
 
     const [isEditingName, setIsEditingName] = useState(false);
     const [editedFileName, setEditedFileName] = useState('');
@@ -55,16 +61,16 @@ export function FileUpload({ onUpload }: FileUploadProps) {
 
     // Check for existing upload on mount
     useEffect(() => {
-        const saved = localStorage.getItem('current_upload');
-        if (saved) {
-            const data = JSON.parse(saved);
-            // If it's the same session/file, we could resume, but for now let's just clear if it's old
-            // or notify the user. For simplicity, we'll clear it if it's more than 10 mins old.
-            if (Date.now() - data.timestamp > 10 * 60 * 1000) {
-                localStorage.removeItem('current_upload');
+        if (userEmail) {
+            const data = UserStorage.getData<any>(userEmail, 'current_upload', null);
+            if (data) {
+                // If it's the same session/file, we could resume, but for now let's just clear if it's old
+                if (Date.now() - data.timestamp > 10 * 60 * 1000) {
+                    UserStorage.saveData(userEmail, 'current_upload', null);
+                }
             }
         }
-    }, []);
+    }, [userEmail]);
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) {
@@ -85,10 +91,10 @@ export function FileUpload({ onUpload }: FileUploadProps) {
     });
 
     const handleAddNewBank = () => {
-        if (newBankName.trim()) {
+        if (newBankName.trim() && userEmail) {
             const updatedBanks = [...bankAccounts, newBankName.trim()];
             setBankAccounts(updatedBanks);
-            localStorage.setItem('bankAccounts', JSON.stringify(updatedBanks));
+            UserStorage.saveData(userEmail, 'bankAccounts', updatedBanks);
             setSelectedBank(newBankName.trim());
             setNewBankName('');
             setIsAddingNewBank(false);
@@ -108,13 +114,15 @@ export function FileUpload({ onUpload }: FileUploadProps) {
 
         const startTime = Date.now();
 
-        // Save to local storage for persistence
-        localStorage.setItem('current_upload', JSON.stringify({
-            fileName: file.name,
-            bank: selectedBank,
-            timestamp: startTime,
-            status: 'processing'
-        }));
+        // Save to user-scoped storage for persistence
+        if (userEmail) {
+            UserStorage.saveData(userEmail, 'current_upload', {
+                fileName: file.name,
+                bank: selectedBank,
+                timestamp: startTime,
+                status: 'processing'
+            });
+        }
 
         const timerInterval = setInterval(() => {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -141,11 +149,11 @@ export function FileUpload({ onUpload }: FileUploadProps) {
             clearInterval(timerInterval);
             setProgress(100);
             setEstimatedTimeRemaining(0);
-            localStorage.removeItem('current_upload');
+            if (userEmail) UserStorage.saveData(userEmail, 'current_upload', null);
         } catch (error) {
             console.error('Upload failed', error);
             clearInterval(timerInterval);
-            localStorage.removeItem('current_upload');
+            if (userEmail) UserStorage.saveData(userEmail, 'current_upload', null);
         } finally {
             setIsUploading(false);
         }

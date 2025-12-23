@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TrendingUp, TrendingDown, AlertTriangle, Lightbulb, Target, ArrowUp, ArrowDown, Sparkles, Loader2 } from 'lucide-react';
 import { Transaction } from '@/types';
 import { generateInsights } from '@/lib/insights';
+import { UserStorage } from '@/lib/storage';
+import { useSession } from 'next-auth/react';
 
 interface AIInsightsProps {
     transactions: Transaction[];
@@ -21,15 +23,18 @@ export function AIInsights({ transactions }: AIInsightsProps) {
         return generateInsights(transactions);
     }, [transactions]);
 
+    const { data: session } = useSession();
+    const userEmail = session?.user?.email;
+
     // Fetch AI summary when insights are available
     useEffect(() => {
-        if (insights && insights.trends.currentTotal > 0) {
+        if (insights && insights.trends.currentTotal > 0 && userEmail) {
             // Create a unique cache key based on spending totals
             // This ensures we get fresh insights if the data changes
             const cacheKey = `ai-summary-${Math.round(insights.trends.currentTotal)}-${Math.round(insights.trends.previousTotal)}`;
 
-            // Check if we have a cached summary
-            const cachedSummary = localStorage.getItem(cacheKey);
+            // Check if we have a cached summary in user-scoped storage
+            const cachedSummary = UserStorage.getData<string | null>(userEmail, cacheKey, null);
             if (cachedSummary) {
                 setAiSummary(cachedSummary);
                 return;
@@ -46,20 +51,14 @@ export function AIInsights({ transactions }: AIInsightsProps) {
                 .then(data => {
                     if (data.summary) {
                         setAiSummary(data.summary);
-                        // Cache the summary
-                        localStorage.setItem(cacheKey, data.summary);
-
-                        // Clean up old cache entries (keep only last 10)
-                        const allKeys = Object.keys(localStorage).filter(k => k.startsWith('ai-summary-'));
-                        if (allKeys.length > 10) {
-                            allKeys.slice(0, allKeys.length - 10).forEach(k => localStorage.removeItem(k));
-                        }
+                        // Cache the summary in user-scoped storage
+                        UserStorage.saveData(userEmail, cacheKey, data.summary);
                     }
                 })
                 .catch(err => console.error('Failed to fetch AI summary:', err))
                 .finally(() => setLoadingAI(false));
         }
-    }, [insights]);
+    }, [insights, userEmail]);
 
     if (!insights || transactions.length === 0) {
         return (
