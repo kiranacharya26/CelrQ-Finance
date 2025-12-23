@@ -72,6 +72,10 @@ export async function POST(req: Request) {
         const response = await Cashfree.PGCreateOrder("2023-08-01", orderPayload);
 
         console.log("Cashfree Response Status:", response.status);
+        if (response.data && response.data.payment_session_id) {
+            console.log("Generated Payment Session ID:", response.data.payment_session_id.substring(0, 10) + "...");
+        }
+
         return NextResponse.json(response.data);
 
     } catch (err: any) {

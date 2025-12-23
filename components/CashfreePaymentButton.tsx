@@ -40,12 +40,18 @@ export default function CashfreePaymentButton({ amount, receiptId, customer, ret
             }
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to create order");
+            if (!res.ok) {
+                console.error("Order Creation Failed:", data);
+                throw new Error(data.error || "Failed to create order");
+            }
 
             const paymentSessionId = data.payment_session_id;
             if (!paymentSessionId) {
+                console.error("No Session ID in response:", data);
                 throw new Error("No payment session ID returned from server");
             }
+
+            console.log("Received Session ID:", paymentSessionId.substring(0, 10) + "...");
 
             // 2. Load SDK and Checkout
             const cashfree = await load({
