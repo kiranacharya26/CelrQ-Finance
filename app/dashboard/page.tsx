@@ -41,7 +41,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 
 function DashboardContent() {
-    const { userEmail, isAuthenticated } = useAuth();
+    const { userEmail, isAuthenticated, session } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -195,15 +195,18 @@ function DashboardContent() {
     useEffect(() => {
         const checkStatus = async () => {
             if (userEmail) {
-                const res = await fetch(`/api/payment/status?email=${userEmail}`);
+                const userId = (session?.user as any)?.id || '';
+                const res = await fetch(`/api/payment/status?email=${userEmail}&userId=${userId}`);
                 const data = await res.json();
                 if (data.isTrial) {
                     setTrialInfo({ isTrial: true, daysRemaining: data.trialDaysRemaining });
+                } else {
+                    setTrialInfo(null);
                 }
             }
         };
         checkStatus();
-    }, [userEmail]);
+    }, [userEmail, session]);
 
     const handleDeleteBankData = async () => {
         // This function will now be called by the ConfirmDialog

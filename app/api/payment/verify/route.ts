@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Cashfree } from "cashfree-pg";
 
 export async function POST(req: Request) {
-    const isProduction = process.env.CASHFREE_USE_PRODUCTION === "true";
+    const isProduction = process.env.NEXT_PUBLIC_CASHFREE_USE_PRODUCTION === "true";
 
     try {
         // Validate environment variables
@@ -12,20 +12,17 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
         }
 
-        // Configure Cashfree
-        if (!process.env.NEXT_PUBLIC_CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
-            console.error("Missing Cashfree environment variables");
-            return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-        }
+        const appId = (process.env.NEXT_PUBLIC_CASHFREE_APP_ID || "").trim();
+        const secretKey = (process.env.CASHFREE_SECRET_KEY || "").trim();
 
         console.log("Cashfree Environment:", {
-            appId: process.env.NEXT_PUBLIC_CASHFREE_APP_ID?.substring(0, 10) + "...",
+            appId: appId.substring(0, 4) + "...",
             isProduction,
             environment: isProduction ? "PRODUCTION" : "SANDBOX"
         });
 
-        Cashfree.XClientId = process.env.NEXT_PUBLIC_CASHFREE_APP_ID;
-        Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
+        Cashfree.XClientId = appId;
+        Cashfree.XClientSecret = secretKey;
         Cashfree.XEnvironment = isProduction
             ? Cashfree.Environment.PRODUCTION
             : Cashfree.Environment.SANDBOX;
@@ -53,8 +50,8 @@ export async function POST(req: Request) {
             const fetchRes = await fetch(`${baseUrl}/pg/orders/${orderId}`, {
                 method: 'GET',
                 headers: {
-                    'x-client-id': process.env.NEXT_PUBLIC_CASHFREE_APP_ID!,
-                    'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
+                    'x-client-id': appId,
+                    'x-client-secret': secretKey,
                     'x-api-version': '2023-08-01'
                 }
             });
@@ -73,8 +70,14 @@ export async function POST(req: Request) {
         }
 
         // If we successfully verified with Cashfree
-        if (orderData.order_status === "PAID" || orderData.order_status === "ACTIVE") {
-            console.log("✅ Order is PAID:", orderId);
+        // We check for PAID, ACTIVE, or SUCCESS (just in case)
+        const orderStatus = orderData.order_status;
+        if (orderStatus === "PAID" || orderStatus === "ACTIVE" || orderStatus === "SUCCESS") {
+            console.log("✅ Order is PAID/SUCCESS:", orderId);
+
+            // Fallback email extraction from order_note (receiptId) if customer_email is missing
+            const receiptId = orderData.order_note || "";
+            const emailFromNote = receiptId.startsWith('sub_') ? receiptId.split('_')[1] : null;
 
             const paymentRecord = {
                 order_id: orderId,
@@ -82,7 +85,7 @@ export async function POST(req: Request) {
                 amount: orderData.order_amount,
                 currency: orderData.order_currency,
                 user_id: orderData.customer_details?.customer_id || "unknown_user",
-                email: orderData.customer_details?.customer_email || null,
+                email: orderData.customer_details?.customer_email || emailFromNote || customerEmail || null,
                 metadata: orderData,
             };
 

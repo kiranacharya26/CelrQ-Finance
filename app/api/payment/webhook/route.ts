@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         const timestamp = req.headers.get("x-webhook-timestamp") ?? "";
         const rawBody = await req.text();
 
-        const webhookSecret = process.env.CASHFREE_WEBHOOK_SECRET || process.env.CASHFREE_SECRET_KEY;
+        const webhookSecret = (process.env.CASHFREE_WEBHOOK_SECRET || process.env.CASHFREE_SECRET_KEY || "").trim();
 
         if (!webhookSecret) {
             console.error("Missing CASHFREE_WEBHOOK_SECRET or CASHFREE_SECRET_KEY");
