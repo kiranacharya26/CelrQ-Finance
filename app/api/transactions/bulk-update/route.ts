@@ -3,11 +3,14 @@ import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(req: Request) {
     try {
-        const { userEmail, description, newCategory, action } = await req.json();
+        const body = await req.json();
+        const { userEmail, description, newCategory, action, ids } = body;
 
         if (!userEmail || !description || !newCategory) {
+            console.error('❌ Bulk update missing fields:', { userEmail, description, newCategory });
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
+
 
         // 1. PREVIEW: Find matching transactions
         if (action === 'preview') {
@@ -28,18 +31,27 @@ export async function POST(req: Request) {
 
         // 2. EXECUTE: Update all matching transactions
         if (action === 'execute') {
-            // A. Update Transactions
-            const { error: updateError } = await supabaseAdmin
+
+            let updateQuery = supabaseAdmin
                 .from('transactions')
                 .update({ category: newCategory })
-                .eq('user_email', userEmail)
-                .ilike('description', description);
+                .ilike('user_email', userEmail);
 
-            if (updateError) throw updateError;
+            if (ids && Array.isArray(ids) && ids.length > 0) {
+                updateQuery = updateQuery.in('id', ids);
+            } else {
+                updateQuery = updateQuery.ilike('description', `%${description}%`);
+            }
+
+            const { data, error: updateError, count } = await updateQuery.select('id');
+            if (updateError) {
+                console.error('❌ Database update error:', updateError);
+                throw updateError;
+            }
+
 
             // B. Learn for Future (Update Memory Bank)
             // We extract a keyword from the description to save as a rule
-            // Simple logic: use the description as the keyword for now
             const { error: ruleError } = await supabaseAdmin
                 .from('merchant_rules')
                 .upsert({
@@ -50,7 +62,10 @@ export async function POST(req: Request) {
 
             if (ruleError) console.warn("Failed to save rule:", ruleError);
 
-            return NextResponse.json({ success: true });
+            return NextResponse.json({
+                success: true,
+                updatedCount: data?.length || 0
+            });
         }
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

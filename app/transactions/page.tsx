@@ -39,7 +39,7 @@ function TransactionsContent() {
                 .select('*')
                 .eq('user_email', userEmail)
                 .eq('status', 'processing')
-                .order('created_at', { ascending: false })
+                .order('upload_date', { ascending: false })
                 .limit(1);
 
             if (data && data.length > 0) {

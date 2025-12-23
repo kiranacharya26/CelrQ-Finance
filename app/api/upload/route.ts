@@ -238,7 +238,6 @@ export async function POST(request: Request) {
                     if (!dbKeywords[r.category]) dbKeywords[r.category] = [];
                     dbKeywords[r.category].push(r.keyword);
                 });
-                console.log(`🧠 Loaded ${dbRules.length} merchant rules from Memory Bank`);
             }
         } catch (err) {
             // Silent fail - table might not exist yet

@@ -69,6 +69,10 @@ export function analyzeMerchant(transactions: Transaction[], merchantName: strin
         frequency,
         categoryBreakdown,
         monthlyTrend,
-        recentTransactions: merchantTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
+        recentTransactions: merchantTxs.sort((a, b) => {
+            const dateB = b.date ? new Date(b.date).getTime() : 0;
+            const dateA = a.date ? new Date(a.date).getTime() : 0;
+            return dateB - dateA;
+        }).slice(0, 5)
     };
 }

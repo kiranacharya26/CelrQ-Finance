@@ -76,21 +76,23 @@ export function SmartCategoryDialog({
                         <Sparkles className="h-5 w-5 text-blue-500" />
                         <AlertDialogTitle>Update Similar Transactions?</AlertDialogTitle>
                     </div>
-                    <AlertDialogDescription className="space-y-3 text-left">
-                        <p>
-                            Found <Badge variant="secondary" className="mx-1 font-semibold">{similarCount}</Badge>
-                            other transaction{similarCount !== 1 ? 's' : ''} from <strong>{merchantName}</strong>.
-                        </p>
-                        <div className="p-3 bg-muted rounded-lg text-sm">
-                            <p className="font-medium text-foreground mb-1">Would you like to:</p>
-                            <ul className="space-y-1 text-muted-foreground">
-                                <li>• Update all to <strong className="text-foreground">{newCategory}</strong>?</li>
-                                <li>• Or just update this one transaction?</li>
-                            </ul>
+                    <AlertDialogDescription className="space-y-3 text-left" asChild>
+                        <div className="text-muted-foreground text-sm space-y-3 text-left">
+                            <p>
+                                Found <Badge variant="secondary" className="mx-1 font-semibold">{similarCount}</Badge>
+                                other transaction{similarCount !== 1 ? 's' : ''} from <strong>{merchantName}</strong>.
+                            </p>
+                            <div className="p-3 bg-muted rounded-lg text-sm">
+                                <p className="font-medium text-foreground mb-1">Would you like to:</p>
+                                <ul className="space-y-1 text-muted-foreground">
+                                    <li>• Update all to <strong className="text-foreground">{newCategory}</strong>?</li>
+                                    <li>• Or just update this one transaction?</li>
+                                </ul>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                💡 Updating all similar transactions saves time for recurring payments like subscriptions!
+                            </p>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            💡 Updating all similar transactions saves time for recurring payments like subscriptions!
-                        </p>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter className="flex-col sm:flex-row gap-2">

@@ -179,22 +179,24 @@ export function useTransactionTable({
                         userEmail: session.user.email,
                         description: extractMerchantPattern(transactionToUpdate.description || ''), // Use the pattern for matching
                         newCategory,
+                        ids: idsToUpdate,
                         action: 'execute'
                     })
                 });
 
                 if (!response.ok) throw new Error('Bulk update failed');
+                const result = await response.json();
 
                 refresh(); // Sync with global context
-                return { updated: idsToUpdate.length };
+                return { updated: result.updatedCount || idsToUpdate.length };
             } catch (e) {
                 console.error('Error updating similar transactions:', e);
-                setLocalTransactions(localTransactions); // Revert on error
+                setLocalTransactions(transactions); // Revert to original prop
                 throw e;
             }
         }
 
-        // Standard Single or Selection Update (Existing Logic)
+        // Standard Single or Selection Update
         let idsToUpdate: string[];
         if (isBulk) {
             idsToUpdate = Array.from(selectedIds);
@@ -211,31 +213,30 @@ export function useTransactionTable({
         setLocalTransactions(updatedLocal);
 
         try {
-            const { error } = await supabase.from('transactions').update({ category: newCategory }).in('id', idsToUpdate);
-            if (error) throw error;
-            if (onCategoryChange) onCategoryChange(globalIndex, newCategory);
+            const response = await fetch('/api/transactions/bulk-update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userEmail: session.user.email,
+                    description: extractMerchantPattern(transactionToUpdate.description || ''),
+                    newCategory,
+                    ids: idsToUpdate,
+                    action: 'execute'
+                })
+            });
 
-            // Also save rule for single update if it's a manual correction?
-            // Optional: We could save rule even for single updates to be smart.
-            // Let's do it for single updates too to be helpful.
-            if (idsToUpdate.length === 1) {
-                await fetch('/api/transactions/bulk-update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userEmail: session.user.email,
-                        description: extractMerchantPattern(transactionToUpdate.description || ''),
-                        newCategory,
-                        action: 'execute' // This will update DB (redundant but safe) and save rule
-                    })
-                });
+            if (!response.ok) throw new Error('Update failed');
+            const result = await response.json();
+
+            if (onCategoryChange && !isBulk) {
+                onCategoryChange(globalIndex, newCategory);
             }
 
             refresh(); // Sync with global context
-            return { updated: idsToUpdate.length };
+            return { updated: result.updatedCount || idsToUpdate.length };
         } catch (e) {
             console.error('Error updating category:', e);
-            setLocalTransactions(localTransactions); // revert
+            setLocalTransactions(transactions); // revert to original prop
             throw e;
         }
     };
