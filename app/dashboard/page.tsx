@@ -253,7 +253,7 @@ function DashboardContent() {
                                 />
                             </div>
                             <button
-                                onClick={() => router.push('/settings')}
+                                onClick={() => router.push('/?upgrade=true')}
                                 className="w-full md:w-auto bg-white text-indigo-600 px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-indigo-50 transition-colors shadow-sm"
                             >
                                 Upgrade Now

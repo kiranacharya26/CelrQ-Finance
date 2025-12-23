@@ -68,7 +68,7 @@ export default function CashfreePaymentButton({ amount, receiptId, customer, ret
             disabled={loading}
             className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg text-lg"
         >
-            {loading ? "Processing…" : `Pay ₹${amount}/month`}
+            {loading ? "Processing…" : `Pay ₹${amount}/${planType === 'monthly' ? 'month' : 'year'}`}
         </button>
     );
 }

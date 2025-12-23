@@ -280,10 +280,11 @@ export default function Home() {
     );
   }
 
-  if (hasPaid === false || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('upgrade') === 'true')) {
+  const isUpgrade = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('upgrade') === 'true';
+
+  if (hasPaid === false || isUpgrade) {
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const paymentRequired = params?.get('payment_required') === 'true';
-    const isUpgrade = params?.get('upgrade') === 'true';
     const errorType = params?.get('error');
 
     return (
