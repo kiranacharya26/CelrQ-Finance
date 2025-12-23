@@ -201,9 +201,26 @@ const storeTransactions = async (transactions: any[], userEmail: string, bankNam
 
 export async function POST(request: Request) {
     try {
+        const { getServerSession } = await import('next-auth');
+        const { authOptions } = await import('@/lib/auth');
+        const { checkRateLimit } = await import('@/lib/rate-limit');
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Rate Limit: 10 uploads per hour
+        const { allowed } = await checkRateLimit(session.user.email, 'categorization', 10, 1);
+        if (!allowed) {
+            return NextResponse.json({
+                error: 'Upload limit reached. Please try again in an hour.'
+            }, { status: 429 });
+        }
+
         const formData = await request.formData();
         const file = formData.get('file') as File;
-        const userEmail = (formData.get('email') as string) ?? 'unknown@example.com';
+        const userEmail = session.user.email; // Use session email for security
         const bankName = (formData.get('bankAccount') as string) ?? '';
 
         if (!file) {
@@ -440,6 +457,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 });
     } catch (error) {
         console.error('Upload error:', error);
-        return NextResponse.json({ error: `Failed to process file: ${(error as Error).message}` }, { status: 500 });
+        const isDev = process.env.NODE_ENV === 'development';
+        return NextResponse.json({
+            error: isDev ? `Failed to process file: ${(error as Error).message}` : 'Failed to process file. Please try again later.'
+        }, { status: 500 });
     }
 }

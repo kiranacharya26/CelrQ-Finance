@@ -5,113 +5,87 @@ import { getToken } from 'next-auth/jwt';
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    console.log('🔒 Middleware triggered for:', pathname);
-
-    // Protected routes that require payment
+    // 1. Define Protected Routes
     const protectedRoutes = ['/dashboard', '/transactions', '/insights', '/settings'];
-    const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+    const isAdminRoute = pathname.startsWith('/admin');
+    const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route)) || isAdminRoute;
 
     if (isProtectedRoute) {
-        console.log('🔒 Protected route detected:', pathname);
+        // 2. Get Session Token
+        const token = await getToken({
+            req: request,
+            secret: process.env.NEXTAUTH_SECRET
+        });
 
-        // Check session via API instead of getToken (more reliable)
+        // 3. Not Logged In -> Redirect to Home
+        if (!token) {
+            const url = request.nextUrl.clone();
+            url.pathname = '/';
+            return NextResponse.redirect(url);
+        }
+
+        // 4. Admin Route Protection
+        if (isAdminRoute) {
+            const adminEmails = (process.env.ADMIN_EMAILS || 'acharya.kiran26ka@gmail.com').split(',').map(e => e.trim().toLowerCase());
+            const userEmail = token.email?.toLowerCase();
+
+            if (!userEmail || !adminEmails.includes(userEmail)) {
+                console.warn(`🚫 Unauthorized admin access attempt by: ${userEmail}`);
+                const url = request.nextUrl.clone();
+                url.pathname = '/dashboard'; // Send them to their own dashboard instead
+                return NextResponse.redirect(url);
+            }
+            return NextResponse.next();
+        }
+
+        // 5. Payment Protection for Standard Protected Routes
         try {
             const baseUrl = request.nextUrl.origin;
-            const sessionUrl = new URL('/api/auth/session', baseUrl);
+            const statusUrl = new URL('/api/payment/status', baseUrl);
+            statusUrl.searchParams.set('email', token.email || '');
+            statusUrl.searchParams.set('userId', (token.sub || token.id) as string);
 
-            // Forward cookies from the request
-            const sessionResponse = await fetch(sessionUrl.toString(), {
+            const response = await fetch(statusUrl.toString(), {
                 headers: {
                     cookie: request.headers.get('cookie') || '',
                 },
             });
 
-            if (!sessionResponse.ok) {
-                console.log('❌ Session API returned error, redirecting to home');
-                const url = request.nextUrl.clone();
-                url.pathname = '/';
-                return NextResponse.redirect(url);
-            }
-
-            const session = await sessionResponse.json();
-
-            if (!session || !session.user) {
-                console.log('❌ No session found, redirecting to home');
-                const url = request.nextUrl.clone();
-                url.pathname = '/';
-                return NextResponse.redirect(url);
-            }
-
-            console.log('✅ Session found:', { email: session.user.email });
-
-            // Check payment status
-            const userId = (session.user as any).id || '';
-            const email = session.user.email;
-
-            try {
-                // Call the payment status API
-                const statusUrl = new URL('/api/payment/status', baseUrl);
-                statusUrl.searchParams.set('userId', userId);
-                statusUrl.searchParams.set('email', email || '');
-
-                console.log('🔍 Checking payment status at:', statusUrl.toString());
-
-                const response = await fetch(statusUrl.toString(), {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                });
-
-                console.log('📡 Payment API response status:', response.status);
-
-                // If API returns error, fail closed (block access) for security
-                if (!response.ok) {
-                    console.warn(`❌ Payment status check failed with status ${response.status}. Blocking access.`);
-                    const url = request.nextUrl.clone();
-                    url.pathname = '/';
-                    url.searchParams.set('payment_required', 'true');
-                    url.searchParams.set('error', 'verification_failed');
-                    return NextResponse.redirect(url);
-                }
-
-                const data = await response.json();
-                console.log('📦 Payment API data:', data);
-
-                // If user hasn't paid, redirect to home page with payment prompt
-                if (data.hasPaid === false) {
-                    console.log('❌ User has not paid, redirecting to home');
-                    const url = request.nextUrl.clone();
-                    url.pathname = '/';
-                    url.searchParams.set('payment_required', 'true');
-                    return NextResponse.redirect(url);
-                }
-
-                // User has paid, allow access
-                console.log('✅ User has paid, allowing access to:', pathname);
-                return NextResponse.next();
-
-            } catch (error) {
-                console.error('❌ Error checking payment status in middleware:', error);
-                // Fail closed - block access if payment check fails
-                console.warn('❌ Payment verification failed. Blocking access for security.');
+            if (!response.ok) {
+                // Fail closed for security
                 const url = request.nextUrl.clone();
                 url.pathname = '/';
                 url.searchParams.set('payment_required', 'true');
-                url.searchParams.set('error', 'verification_error');
                 return NextResponse.redirect(url);
             }
+
+            const data = await response.json();
+
+            if (!data.hasPaid) {
+                const url = request.nextUrl.clone();
+                url.pathname = '/';
+                url.searchParams.set('payment_required', 'true');
+                return NextResponse.redirect(url);
+            }
+
+            return NextResponse.next();
         } catch (error) {
-            console.error('❌ Error checking session:', error);
+            console.error('Middleware Payment Check Error:', error);
             const url = request.nextUrl.clone();
             url.pathname = '/';
             return NextResponse.redirect(url);
         }
     }
 
-    console.log('✅ Non-protected route, allowing access');
     return NextResponse.next();
 }
 
 export const config = {
-    matcher: ['/dashboard/:path*', '/transactions/:path*'],
+    matcher: [
+        '/dashboard/:path*',
+        '/transactions/:path*',
+        '/insights/:path*',
+        '/settings/:path*',
+        '/admin/:path*'
+    ],
 };

@@ -21,6 +21,24 @@ export async function GET(req: Request) {
         const email = searchParams.get("email");
         const userId = searchParams.get("userId");
 
+        // 1. Secure the API: Check if the requester is authorized
+        const { getServerSession } = await import('next-auth');
+        const { authOptions } = await import('@/lib/auth');
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user) {
+            return NextResponse.json({ hasPaid: false, error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Only allow users to check their own status, or if they are an admin
+        const adminEmails = (process.env.ADMIN_EMAILS || 'acharya.kiran26ka@gmail.com').split(',').map(e => e.trim().toLowerCase());
+        const isSelf = session.user.email?.toLowerCase() === email?.toLowerCase();
+        const isAdmin = session.user.email && adminEmails.includes(session.user.email.toLowerCase());
+
+        if (!isSelf && !isAdmin) {
+            return NextResponse.json({ hasPaid: false, error: "Forbidden" }, { status: 403 });
+        }
+
 
 
         if (!email && !userId) {
@@ -40,7 +58,6 @@ export async function GET(req: Request) {
 
         // Developer/Admin Bypass
         // Allows specified emails to bypass payment checks
-        const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
         if (email && adminEmails.includes(email.toLowerCase())) {
             return NextResponse.json({
                 hasPaid: true,

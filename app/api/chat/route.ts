@@ -7,6 +7,23 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'OpenAI not configured' }, { status: 503 });
         }
 
+        const { getServerSession } = await import('next-auth');
+        const { authOptions } = await import('@/lib/auth');
+        const { checkRateLimit } = await import('@/lib/rate-limit');
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Rate Limit: 50 chat messages per hour
+        const { allowed } = await checkRateLimit(session.user.email, 'chat', 50, 1);
+        if (!allowed) {
+            return NextResponse.json({
+                error: 'Too many messages. Please take a break and try again in an hour.'
+            }, { status: 429 });
+        }
+
         const { messages, context } = await req.json();
         const lastMessage = messages[messages.length - 1];
 
@@ -73,6 +90,9 @@ INSTRUCTIONS:
 
     } catch (error: any) {
         console.error('Chat API Error:', error);
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+        const isDev = process.env.NODE_ENV === 'development';
+        return NextResponse.json({
+            error: isDev ? (error.message || 'Internal server error') : 'An error occurred while processing your request.'
+        }, { status: 500 });
     }
 }
