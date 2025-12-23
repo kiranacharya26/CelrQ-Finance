@@ -58,8 +58,21 @@ const sanitizeTransaction = (raw: any, userEmail: string, bankName: string, uplo
         // Let's assume expense if we can't tell, to be safe? No, let's default to expense.
     }
 
+    // 4. Generate a stable ID (Fingerprint) for deduplication
+    // We try to find a unique reference number from the bank first
+    const refKey = findKey(/ref|txn id|transaction id|chq|cheque|reference/i);
+    const refValue = refKey ? String(raw[refKey]).trim() : '';
+
+    // If no bank ref, we create a fingerprint: Date + Description + Amount + Bank
+    // This ensures that if the same transaction is uploaded in different files, it has the same ID.
+    const fingerprint = md5Hex(`${userEmail}-${dateStr}-${description}-${amount}-${bankName}-${refValue}`);
+
+    // We use a UUID-v4 format for the ID to keep it consistent with the schema
+    // but derived from our fingerprint hash.
+    const stableId = `${fingerprint.slice(0, 8)}-${fingerprint.slice(8, 12)}-4${fingerprint.slice(13, 16)}-a${fingerprint.slice(17, 20)}-${fingerprint.slice(20, 32)}`;
+
     return {
-        id: raw.id ?? randomUUID(),
+        id: raw.id || stableId,
         user_email: userEmail,
         date: dateStr,
         description: description,
@@ -77,54 +90,113 @@ const storeTransactions = async (transactions: any[], userEmail: string, bankNam
     // 1. Create Upload Record
     if (!uploadId) uploadId = randomUUID();
 
-    // Try to insert into uploads table. If it fails (e.g. table doesn't exist yet), we proceed without upload_id
-    // to maintain backward compatibility until migration is run.
-    try {
-        const { error: uploadError } = await supabaseAdmin.from('uploads').insert({
-            id: uploadId,
-            user_email: userEmail,
-            file_name: fileName,
-            file_hash: fileHash, // Save the hash!
-            bank_name: bankName,
-            transaction_count: transactions.length,
-            processed_count: 0,
-            status: 'processing'
-        });
+    const { error: uploadError } = await supabaseAdmin.from('uploads').insert({
+        id: uploadId,
+        user_email: userEmail,
+        file_name: fileName,
+        file_hash: fileHash,
+        bank_name: bankName,
+        transaction_count: transactions.length,
+        processed_count: 0,
+        status: 'processing'
+    });
 
-        if (uploadError) {
-            console.warn('Failed to create upload record (table might be missing):', uploadError.message);
-            // If we can't create upload record, we might still want to save transactions but without upload_id?
-            // Or should we fail? For now, let's log and proceed, passing uploadId anyway.
-            // If the column 'upload_id' is missing in transactions, the next insert will fail or ignore it depending on strictness.
-        }
-    } catch (e) {
-        console.warn('Error creating upload record:', e);
+    if (uploadError) {
+        console.error('Failed to create upload record:', uploadError);
+        throw new Error(`Failed to create upload record: ${uploadError.message}`);
     }
 
-    const sanitized = transactions.map(t => sanitizeTransaction(t, userEmail, bankName, uploadId));
+    // 2. Fetch existing manual categorizations to preserve them
+    let manualCategories = new Map<string, { category: string }>();
+    try {
+        const { data: existingManual } = await supabaseAdmin
+            .from('transactions')
+            .select('id, category')
+            .eq('user_email', userEmail)
+            .eq('is_manual_category', true);
 
-    // Batch upserts to avoid request size limits (Supabase/PostgREST limit)
+        if (existingManual) {
+            existingManual.forEach((t: any) => manualCategories.set(t.id, { category: t.category }));
+        }
+    } catch (e) {
+        console.warn('Error fetching manual categories:', e);
+    }
+
+    const sanitized = transactions.map((t: any) => {
+        const s = sanitizeTransaction(t, userEmail, bankName, uploadId);
+
+        // If we have a manual category for this transaction ID, preserve it
+        if (manualCategories.has(s.id)) {
+            const manual = manualCategories.get(s.id)!;
+            return {
+                ...s,
+                category: manual.category,
+                is_manual_category: true
+            };
+        }
+        return s;
+    });
+
+    // 3. Deduplicate sanitized transactions to prevent PostgreSQL "ON CONFLICT" errors
+    // if multiple transactions in the same batch have the same ID.
+    const deduplicatedMap = new Map<string, any>();
+    sanitized.forEach(t => {
+        if (t.id) {
+            deduplicatedMap.set(t.id.toLowerCase(), t);
+        }
+    });
+    const deduplicated = Array.from(deduplicatedMap.values());
+
+    // 4. Batch upserts
     const BATCH_SIZE = 1000;
-    for (let i = 0; i < sanitized.length; i += BATCH_SIZE) {
-        const batch = sanitized.slice(i, i + BATCH_SIZE);
-        const { data, error } = await supabaseAdmin.from('transactions').upsert(batch);
+    for (let i = 0; i < deduplicated.length; i += BATCH_SIZE) {
+        const batch = deduplicated.slice(i, i + BATCH_SIZE);
+        console.log(`💾 Upserting batch of ${batch.length} transactions...`);
+
+        // Final safety check for duplicate IDs in the batch
+        const idsInBatch = batch.map((t: any) => t.id);
+        const uniqueIdsInBatch = new Set(idsInBatch);
+        if (idsInBatch.length !== uniqueIdsInBatch.size) {
+            console.error('❌ CRITICAL: Duplicate IDs found in batch despite deduplication!', {
+                total: idsInBatch.length,
+                unique: uniqueIdsInBatch.size
+            });
+            // Find duplicates for logging
+            const seen = new Set();
+            const dups = idsInBatch.filter(id => {
+                if (seen.has(id)) return true;
+                seen.add(id);
+                return false;
+            });
+            console.error('Duplicate IDs:', dups);
+        }
+
+        const { error } = await supabaseAdmin.from('transactions').upsert(batch, { onConflict: 'id' });
+
         if (error) {
-            console.error('Supabase upsert error:', error);
-            // If error is about missing column 'upload_id', retry without it
+            console.error('❌ Supabase transactions upsert error:', error);
+            // Fallback: Retry without upload_id if column is missing
             if (error.message?.includes('upload_id')) {
-                console.warn('Retrying without upload_id...');
-                const batchNoUploadId = batch.map((t: any) => {
-                    const { upload_id, ...rest } = t;
-                    return rest;
-                });
+                console.warn('⚠️ Retrying without upload_id...');
+                const batchNoUploadId = batch.map(({ upload_id, ...rest }: any) => rest);
                 const { error: retryError } = await supabaseAdmin.from('transactions').upsert(batchNoUploadId);
                 if (retryError) throw retryError;
             } else {
                 throw error;
             }
         }
+        console.log(`✅ Batch upserted successfully`);
     }
-    return sanitized; // Return processed data
+
+    // 4. Finalize Upload Record
+    try {
+        await supabaseAdmin.from('uploads').update({
+            status: 'completed',
+            processed_count: transactions.length
+        }).eq('id', uploadId);
+    } catch (e) { }
+
+    return sanitized;
 };
 
 export async function POST(request: Request) {
@@ -268,85 +340,96 @@ export async function POST(request: Request) {
             });
 
             if (newRulesToInsert.length > 0) {
+                // Deduplicate rules by user_email and keyword (case-insensitive and trimmed)
+                const uniqueRulesMap = new Map<string, any>();
+                newRulesToInsert.forEach(rule => {
+                    const normalizedKeyword = rule.keyword.trim().toLowerCase();
+                    uniqueRulesMap.set(`${rule.user_email}-${normalizedKeyword}`, {
+                        ...rule,
+                        keyword: normalizedKeyword
+                    });
+                });
+                const uniqueRules = Array.from(uniqueRulesMap.values());
+
                 try {
-                    const { error } = await supabaseAdmin.from('merchant_rules').upsert(newRulesToInsert, { onConflict: 'user_email, keyword' });
-                    if (!error) console.log(`🧠 Saved ${newRulesToInsert.length} new merchant rules`);
+                    console.log(`🧠 Upserting ${uniqueRules.length} merchant rules...`);
+                    const { error } = await supabaseAdmin.from('merchant_rules').upsert(uniqueRules, { onConflict: 'user_email, keyword' });
+                    if (error) {
+                        console.error('❌ Merchant rules upsert error:', error);
+                    } else {
+                        console.log(`✅ Saved ${uniqueRules.length} new merchant rules`);
+                    }
                 } catch (err) {
-                    // Silent fail
+                    console.error('❌ Merchant rules exception:', err);
                 }
             }
         };
 
-        // ---------- PDF ----------
+        // 2. Parse and Pre-process
+        let rawTransactions: any[] = [];
         if (file.type === 'application/pdf') {
-            console.time('⏱️  PDF parsing');
             const rawText = await parsePDF(buffer);
-            console.timeEnd('⏱️  PDF parsing');
-
-            const pdfTransactions = [{
-                description: rawText,
-                date: new Date().toISOString().split('T')[0],
-                amount: 0,
-            }];
-
-            console.time('🤖 AI categorization');
-            const { results: transactions, newlyLearnedKeywords } = await categorizeTransactions(pdfTransactions, learnedKeywords, uploadId);
-            console.timeEnd('🤖 AI categorization');
-
-            await saveNewRules(newlyLearnedKeywords);
-            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash, uploadId);
-            return NextResponse.json({ transactions, newlyLearnedKeywords });
+            rawTransactions = [{ description: rawText, date: new Date().toISOString().split('T')[0], amount: 0 }];
+        } else if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+            rawTransactions = await parseCSV(buffer.toString('utf-8'));
+        } else {
+            rawTransactions = await parseExcel(buffer);
         }
 
-        // ---------- CSV ----------
-        if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
-            const text = buffer.toString('utf-8');
-            console.time('⏱️  CSV parsing');
-            const rawTransactions = await parseCSV(text);
-            console.timeEnd('⏱️  CSV parsing');
+        // 3. Fingerprint and Check for Manual Overrides
+        // This saves AI cost by skipping transactions the user already manually categorized
+        const fingerprinted = rawTransactions.map(t => {
+            const s = sanitizeTransaction(t, userEmail, bankName, uploadId);
+            return { ...t, id: s.id, category: s.category };
+        });
 
-            console.time('🤖 AI categorization');
-            const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(rawTransactions, learnedKeywords, userEmail, uploadId);
-            console.timeEnd('🤖 AI categorization');
+        // Deduplicate in-memory to prevent duplicate IDs in the same batch
+        const uniqueMap = new Map<string, any>();
+        fingerprinted.forEach(t => uniqueMap.set(t.id, t));
+        const processedWithIds = Array.from(uniqueMap.values());
 
-            await saveNewRules(newlyLearnedKeywords);
+        const transactionIds = processedWithIds.map(t => t.id);
+        let manualOverrides = new Map<string, string>();
 
-            const transactions = rawTransactions.map((t, i) => ({
-                ...t,
-                category: categorized[i]?.category ?? 'Uncategorized',
-                merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
-            }));
+        try {
+            const { data: existingManual } = await supabaseAdmin
+                .from('transactions')
+                .select('id, category')
+                .eq('user_email', userEmail)
+                .eq('is_manual_category', true)
+                .in('id', transactionIds);
 
-            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash, uploadId);
-            return NextResponse.json({ transactions, newlyLearnedKeywords });
+            if (existingManual) {
+                existingManual.forEach((t: any) => manualOverrides.set(t.id, t.category));
+            }
+        } catch (e) {
+            console.warn('Error fetching manual overrides:', e);
         }
 
-        // ---------- EXCEL ----------
-        if (
-            file.type === 'application/vnd.ms-excel' ||
-            file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-            file.name.endsWith('.xls') ||
-            file.name.endsWith('.xlsx')
-        ) {
-            console.time('⏱️  Excel parsing');
-            const rawTransactions = await parseExcel(buffer);
-            console.timeEnd('⏱️  Excel parsing');
+        // Apply manual overrides before AI
+        const transactionsForAI = processedWithIds.map(t => {
+            if (manualOverrides.has(t.id)) {
+                return { ...t, category: manualOverrides.get(t.id) };
+            }
+            return t;
+        });
 
-            console.time('🤖 AI categorization');
-            const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(rawTransactions, learnedKeywords, userEmail, uploadId);
-            console.timeEnd('🤖 AI categorization');
+        // 4. AI Categorization
+        console.time('🤖 AI categorization');
+        const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(transactionsForAI, learnedKeywords, userEmail, uploadId);
+        console.timeEnd('🤖 AI categorization');
 
-            await saveNewRules(newlyLearnedKeywords);
+        await saveNewRules(newlyLearnedKeywords);
 
-            const transactions = rawTransactions.map((t, i) => ({
-                ...t,
-                category: categorized[i]?.category ?? 'Uncategorized',
-                merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
-            }));
+        // 5. Final Merge and Store
+        const finalTransactions = transactionsForAI.map((t, i) => ({
+            ...t,
+            category: categorized[i]?.category ?? t.category ?? 'Uncategorized',
+            merchant_name: categorized[i]?.merchant_name ?? t.merchant_name,
+        }));
 
-            await storeTransactions(transactions, userEmail, bankName, file.name, fileHash, uploadId);
-            return NextResponse.json({ transactions, newlyLearnedKeywords });
-        }
+        await storeTransactions(finalTransactions, userEmail, bankName, file.name, fileHash, uploadId);
+        return NextResponse.json({ transactions: finalTransactions, newlyLearnedKeywords });
 
         // ---------- UNSUPPORTED ----------
         console.warn('Unsupported file type:', file.type);

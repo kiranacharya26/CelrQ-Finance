@@ -34,7 +34,10 @@ export async function POST(req: Request) {
 
             let updateQuery = supabaseAdmin
                 .from('transactions')
-                .update({ category: newCategory })
+                .update({
+                    category: newCategory,
+                    is_manual_category: true
+                })
                 .ilike('user_email', userEmail);
 
             if (ids && Array.isArray(ids) && ids.length > 0) {

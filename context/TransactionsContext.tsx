@@ -118,6 +118,11 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
                 console.error('Error deleting bank transactions:', error);
                 throw error;
             } else {
+                if (bankToDelete === 'all') {
+                    // Also clear uploads table
+                    const { error: uploadError } = await supabase.from('uploads').delete().eq('user_email', userEmail);
+                    if (uploadError) console.error('Error deleting uploads:', uploadError);
+                }
                 refresh();
             }
         } catch (err) {

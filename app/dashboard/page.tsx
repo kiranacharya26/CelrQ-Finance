@@ -105,7 +105,7 @@ function DashboardContent() {
             const date = parseDate(rawDate);
 
             if (date && !isNaN(date.getTime())) {
-                const monthStr = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                const monthStr = date.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
                 if (!uniqueMonths.has(monthStr)) {
                     uniqueMonths.set(monthStr, date);
                 }
@@ -149,7 +149,7 @@ function DashboardContent() {
                 currentFiltered = currentFiltered.filter(t => {
                     const date = parseDate(t[dateKey]);
                     if (!date) return false;
-                    return date.toLocaleString('default', { month: 'long', year: 'numeric' }) === selectedMonth;
+                    return date.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' }) === selectedMonth;
                 });
             }
         }

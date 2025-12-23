@@ -23,10 +23,11 @@ import { useTransactionsContext } from '@/context/TransactionsContext';
 
 export function UploadHistory() {
     const { data: session } = useSession();
-    const { refresh } = useTransactionsContext();
+    const { refresh, transactions } = useTransactionsContext();
     const [uploads, setUploads] = useState<UploadRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [isClearingAll, setIsClearingAll] = useState(false);
 
     const fetchUploads = async () => {
         if (!session?.user?.email) return;
@@ -71,18 +72,79 @@ export function UploadHistory() {
         }
     };
 
+    const handleClearAll = async () => {
+        if (!session?.user?.email) return;
+        try {
+            setIsClearingAll(true);
+            const res = await fetch('/api/transactions/clear-all', {
+                method: 'POST',
+            });
+
+            if (res.ok) {
+                setUploads([]);
+                refresh();
+            } else {
+                console.error('Failed to clear all transactions');
+            }
+        } catch (error) {
+            console.error('Error clearing all transactions:', error);
+        } finally {
+            setIsClearingAll(false);
+        }
+    };
+
     if (!session?.user?.email) return null;
 
     return (
         <Card>
-            <CardHeader>
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Upload History
-                </CardTitle>
-                <CardDescription>
-                    Manage your uploaded statements. Deleting a file will remove all associated transactions.
-                </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="space-y-1">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Upload History
+                    </CardTitle>
+                    <CardDescription>
+                        Manage your uploaded statements. Deleting a file will remove all associated transactions.
+                    </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                    {(uploads.length > 0 || transactions.length > 0) && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-destructive hover:bg-destructive/10 border-destructive/20"
+                                    disabled={isClearingAll || loading}
+                                >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Clear All Data
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Clear all transaction data?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will permanently delete <strong>ALL</strong> transactions and upload records from your account.
+                                        <br /><br />
+                                        Your merchant rules (Memory Bank) and financial goals will be preserved.
+                                        <br /><br />
+                                        This action cannot be undone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={handleClearAll}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                        {isClearingAll ? 'Clearing...' : 'Clear Everything'}
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </div>
             </CardHeader>
             <CardContent>
                 {loading ? (
@@ -93,7 +155,8 @@ export function UploadHistory() {
                     </div>
                 ) : uploads.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                        <p>No uploads found.</p>
+                        <p>No upload history found.</p>
+                        <p className="text-xs mt-2">If you still see transactions, use the "Clear All Data" button above.</p>
                     </div>
                 ) : (
                     <div className="space-y-3">

@@ -144,60 +144,8 @@ export default function Home() {
         UserStorage.saveData(session.user.email, 'learnedKeywords', currentKeywords);
       }
 
-      // Prepare transactions for Supabase
-      const supabaseTransactions = newTransactions.map((t: any) => {
-        const parseAmount = (val: any) => {
-          if (typeof val === 'number') return val;
-          if (!val) return 0;
-          return parseFloat(String(val).replace(/[^0-9.-]+/g, '')) || 0;
-        };
-
-        const dateKey = Object.keys(t).find(k => /date/i.test(k));
-        const descKey = Object.keys(t).find(k => /description|narration|particulars/i.test(k));
-
-        const deposit = parseAmount(t['Deposit Amt.'] || t.deposit || t.credit || 0);
-        const withdrawal = parseAmount(t['Withdrawal Amt.'] || t.withdrawal || t.debit || 0);
-        const amount = parseAmount(t.amount || 0);
-
-        let finalAmount = 0;
-        let type = 'expense';
-
-        if (deposit > 0) {
-          finalAmount = deposit;
-          type = 'income';
-        } else if (withdrawal > 0) {
-          finalAmount = withdrawal;
-          type = 'expense';
-        } else {
-          finalAmount = Math.abs(amount);
-          type = amount >= 0 ? 'income' : 'expense';
-        }
-
-        return {
-          user_email: session.user?.email,
-          date: dateKey ? (parseDate(t[dateKey])?.toISOString().split('T')[0] ?? new Date().toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
-          description: descKey ? t[descKey] : 'Unknown Transaction',
-          amount: finalAmount,
-          type: type,
-          category: t.category || 'Uncategorized',
-          merchant_name: t.merchantName || null,
-          bank_name: bankAccount,
-        };
-      });
-
-      const { error } = await supabase
-        .from('transactions')
-        .insert(supabaseTransactions);
-
-      if (error) {
-        console.error('Error saving to Supabase:', JSON.stringify(error, null, 2));
-        alert(`Error saving to database: ${error.message || JSON.stringify(error)}`);
-        throw error;
-      }
-
-      console.log('✅ Transactions saved successfully. Redirecting to dashboard...');
+      console.log('✅ Transactions processed by API. Redirecting to dashboard...');
       router.push('/dashboard');
-      console.log('✅ Router.push called');
     } catch (error) {
       console.error('Error uploading file:', error);
       alert('Failed to upload file. Please try again.');

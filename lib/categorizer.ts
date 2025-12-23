@@ -199,11 +199,18 @@ export async function categorizeTransactions(
         narration: val.raw
     }));
 
-    // 5. Call OpenAI
-    const BATCH_SIZE = 30; // Smaller batch for deeper analysis
+    // 5. Call OpenAI in Parallel
+    const BATCH_SIZE = 50; // Increased batch size
+    const batches = [];
     for (let i = 0; i < itemsToCategorize.length; i += BATCH_SIZE) {
-        const batch = itemsToCategorize.slice(i, i + BATCH_SIZE);
+        batches.push(itemsToCategorize.slice(i, i + BATCH_SIZE));
+    }
 
+    console.log(`📡 Sending ${batches.length} parallel batches to OpenAI...`);
+
+    let completedItems = 0;
+
+    await Promise.all(batches.map(async (batch, batchIdx) => {
         const prompt = `**SYSTEM ROLE**: You are a world-class financial forensics expert specializing in Indian bank statements and UPI transactions. Your task is to perform a deep analysis of the RAW narration strings.
 
 **TARGET CATEGORIES**:
@@ -245,7 +252,7 @@ Return a JSON object:
 ${JSON.stringify(batch)}`;
 
         try {
-            const response = await openai.chat.completions.create({
+            const response = await openai!.chat.completions.create({
                 model: "gpt-4o",
                 messages: [
                     { role: "system", content: "You are a forensic financial analyst. You analyze raw bank narrations to identify merchants and categories with extreme precision." },
@@ -283,18 +290,19 @@ ${JSON.stringify(batch)}`;
                 });
             }
 
-            // Update progress in DB if uploadId is provided
+            // Update progress
+            completedItems += batch.length;
             if (uploadId) {
-                const processedCount = Math.min(i + BATCH_SIZE, itemsToCategorize.length);
                 await supabaseAdmin
                     .from('uploads')
-                    .update({ processed_count: processedCount })
+                    .update({ processed_count: completedItems })
                     .eq('id', uploadId);
             }
+            console.log(`📦 Batch ${batchIdx + 1}/${batches.length} complete (${completedItems}/${itemsToCategorize.length} items)`);
         } catch (error) {
-            console.error('Error in AI forensic batch:', error);
+            console.error(`❌ Error in AI batch ${batchIdx + 1}:`, error);
         }
-    }
+    }));
 
     // 6. Final Cleanup
     const finalResults = processedTransactions.map(t => {

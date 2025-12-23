@@ -174,7 +174,7 @@ function TransactionsContent() {
             if (dateKey && t[dateKey]) {
                 const date = new Date(t[dateKey]);
                 if (!isNaN(date.getTime())) {
-                    const monthStr = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                    const monthStr = date.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
                     uniqueMonths.add(monthStr);
                 }
             }

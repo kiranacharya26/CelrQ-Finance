@@ -11,6 +11,7 @@ export interface Transaction {
     debit?: number | string;
     balance?: number | string;
     category?: string;
+    is_manual_category?: boolean;
     _description?: string;
     [key: string]: any; // For dynamic CSV columns
 }

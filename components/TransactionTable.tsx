@@ -366,7 +366,23 @@ export function TransactionTable({
                                                             }}
                                                         >
                                                             <SelectTrigger className="w-full min-w-[140px] h-8 text-xs bg-transparent border-transparent hover:border-input focus:border-input transition-all px-2 -ml-2">
-                                                                <SelectValue />
+                                                                <div className="flex items-center gap-2">
+                                                                    <SelectValue />
+                                                                    {t.is_manual_category && (
+                                                                        <TooltipProvider>
+                                                                            <Tooltip>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <div className="flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 text-blue-600">
+                                                                                        <span className="text-[10px] font-bold">U</span>
+                                                                                    </div>
+                                                                                </TooltipTrigger>
+                                                                                <TooltipContent>
+                                                                                    <p className="text-xs">Manually categorized by you</p>
+                                                                                </TooltipContent>
+                                                                            </Tooltip>
+                                                                        </TooltipProvider>
+                                                                    )}
+                                                                </div>
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 {allCategories.map(cat => {
@@ -532,7 +548,7 @@ export function TransactionTable({
                 {currentTransactions.map((t, i) => {
                     const globalIndex = startIndex + i;
                     const isSelected = selectedIds.has(t.id);
-                    const date = t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
+                    const date = t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'N/A';
                     const description = t.description || t.narration || 'No Description';
                     const amount = t['Withdrawal Amt.'] || t['Deposit Amt.'] || t.amount || 0;
                     const isCredit = !!t['Deposit Amt.'] || t.type === 'income';
