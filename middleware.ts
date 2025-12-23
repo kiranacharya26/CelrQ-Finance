@@ -38,43 +38,11 @@ export async function middleware(request: NextRequest) {
             return NextResponse.next();
         }
 
-        // 5. Payment Protection for Standard Protected Routes
-        try {
-            const baseUrl = request.nextUrl.origin;
-            const statusUrl = new URL('/api/payment/status', baseUrl);
-            statusUrl.searchParams.set('email', token.email || '');
-            statusUrl.searchParams.set('userId', (token.sub || token.id) as string);
+        // 5. Payment Protection - REMOVED for Performance
+        // We now handle payment verification on the client-side (Dashboard, Navbar) 
+        // to prevent blocking navigation with a slow API call.
 
-            const response = await fetch(statusUrl.toString(), {
-                headers: {
-                    cookie: request.headers.get('cookie') || '',
-                },
-            });
-
-            if (!response.ok) {
-                // Fail closed for security
-                const url = request.nextUrl.clone();
-                url.pathname = '/';
-                url.searchParams.set('payment_required', 'true');
-                return NextResponse.redirect(url);
-            }
-
-            const data = await response.json();
-
-            if (!data.hasPaid) {
-                const url = request.nextUrl.clone();
-                url.pathname = '/';
-                url.searchParams.set('payment_required', 'true');
-                return NextResponse.redirect(url);
-            }
-
-            return NextResponse.next();
-        } catch (error) {
-            console.error('Middleware Payment Check Error:', error);
-            const url = request.nextUrl.clone();
-            url.pathname = '/';
-            return NextResponse.redirect(url);
-        }
+        return NextResponse.next();
     }
 
     return NextResponse.next();

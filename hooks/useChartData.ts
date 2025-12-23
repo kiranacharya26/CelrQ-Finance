@@ -29,12 +29,32 @@ export function useChartData(
     dateFilter?: (date: Date) => boolean
 ): ChartData {
     return useMemo(() => {
+        if (!transactions || transactions.length === 0) {
+            return {
+                categoryData: {},
+                monthlyData: {},
+                processedTransactions: []
+            };
+        }
+
         const { amountKey, depositKey, withdrawalKey, categoryKey, dateKey } = keys;
 
         // Process transactions
         const processedTransactions: ProcessedTransaction[] = transactions
             .map(t => {
                 let amount = 0;
+                // Optimization: Direct property access if keys are known standard keys
+                if (t.amount !== undefined && t.type !== undefined) {
+                    amount = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount);
+                    return {
+                        original: t,
+                        amount: Math.abs(amount),
+                        type: t.type as 'income' | 'expense',
+                        category: t.category || 'Uncategorized',
+                        date: t.date ? new Date(t.date) : null
+                    };
+                }
+
                 const type = parseTransactionType(t, withdrawalKey, depositKey, amountKey);
 
                 if (withdrawalKey && t[withdrawalKey]) {
@@ -62,23 +82,21 @@ export function useChartData(
         const categoryData: Record<string, number> = {};
         const monthlyData: Record<string, number> = {};
 
-        processedTransactions.forEach(t => {
-            // Only count expenses for category breakdown
+        // Single pass for aggregation
+        for (const t of processedTransactions) {
             if (t.type === 'expense') {
+                // Category aggregation
                 categoryData[t.category] = (categoryData[t.category] || 0) + t.amount;
-            }
 
-            // Count expenses for monthly trend with optional filter
-            if (t.type === 'expense' && t.date) {
-                // Apply date filter if provided
-                if (dateFilter && !dateFilter(t.date)) {
-                    return;
+                // Monthly aggregation (with filter check)
+                if (t.date) {
+                    if (!dateFilter || dateFilter(t.date)) {
+                        const monthYear = formatMonthYear(t.date);
+                        monthlyData[monthYear] = (monthlyData[monthYear] || 0) + t.amount;
+                    }
                 }
-
-                const monthYear = formatMonthYear(t.date);
-                monthlyData[monthYear] = (monthlyData[monthYear] || 0) + t.amount;
             }
-        });
+        }
 
         return {
             categoryData,

@@ -43,7 +43,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
             while (hasMore) {
                 const { data, error } = await supabase
                     .from('transactions')
-                    .select('*')
+                    .select('id, date, description, amount, type, category, merchant_name, bank_name')
                     .eq('user_email', userEmail)
                     .order('date', { ascending: false })
                     .range(page * pageSize, (page + 1) * pageSize - 1);
