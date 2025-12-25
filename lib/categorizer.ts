@@ -253,7 +253,7 @@ ${JSON.stringify(batch)}`;
 
         try {
             const response = await openai!.chat.completions.create({
-                model: "gpt-4o-mini",
+                model: "gpt-4o",
                 messages: [
                     { role: "system", content: "You are a forensic financial analyst. You analyze raw bank narrations to identify merchants and categories with extreme precision." },
                     { role: "user", content: prompt }
@@ -266,6 +266,22 @@ ${JSON.stringify(batch)}`;
             if (content) {
                 const parsed = JSON.parse(content);
                 const results = parsed.categorizations || [];
+
+                // Log AI response details
+                console.log(`🤖 AI returned ${results.length} categorizations for batch ${batchIdx + 1}`);
+                const sampleResults = results.slice(0, 3);
+                console.log('📋 Sample AI results:', JSON.stringify(sampleResults.map((r: any) => ({
+                    merchant: r.merchant,
+                    category: r.category,
+                    confidence: r.confidence
+                })), null, 2));
+
+                // Count categories
+                const categoryCounts: Record<string, number> = {};
+                results.forEach((res: any) => {
+                    categoryCounts[res.category] = (categoryCounts[res.category] || 0) + 1;
+                });
+                console.log('📊 Category distribution:', categoryCounts);
 
                 results.forEach((res: any) => {
                     const batchItem = batch.find(b => b.id === res.id);

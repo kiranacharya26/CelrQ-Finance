@@ -145,7 +145,8 @@ export default function Home() {
       }
 
       console.log('✅ Transactions processed by API. Redirecting to dashboard...');
-      router.push('/dashboard');
+      // Use window.location to force a full page reload and fetch fresh data
+      window.location.href = '/dashboard';
     } catch (error) {
       console.error('Error uploading file:', error);
       alert('Failed to upload file. Please try again.');

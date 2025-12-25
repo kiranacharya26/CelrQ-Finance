@@ -345,20 +345,6 @@ export function FileUpload({ onUpload }: FileUploadProps) {
                                     {progress >= 70 && progress < 95 && "Categorizing and mapping insights..."}
                                     {progress >= 95 && "Completing deep scan..."}
                                 </p>
-
-                                {((elapsedTime > 45) || (progress >= 95 && elapsedTime > 10)) && (
-                                    <div className="pt-2 text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                        <p className="text-[10px] text-muted-foreground mb-2">Deep forensic analysis is running in the background.</p>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 text-[10px] px-2 border-blue-500/30 hover:bg-blue-500/5 text-blue-500"
-                                            onClick={() => router.push('/transactions')}
-                                        >
-                                            View Transactions While We Finish
-                                        </Button>
-                                    </div>
-                                )}
                             </div>
                         )}
 

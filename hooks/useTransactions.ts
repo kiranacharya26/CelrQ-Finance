@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Transaction } from '@/types';
 import { useTransactionsContext } from '@/context/TransactionsContext';
 
@@ -16,9 +16,27 @@ export function useTransactions({ userEmail, selectedBank }: UseTransactionsOpti
 
     // Filter transactions based on selected bank
     const transactions = useMemo(() => {
-        if (selectedBank === 'all') return allTransactions;
-        return allTransactions.filter(t => t.bankName === selectedBank);
+        console.log(`🔍 [useTransactions] Filtering ${allTransactions.length} transactions for bank: "${selectedBank}"`);
+
+        if (selectedBank === 'all') {
+            console.log(`✅ [useTransactions] Returning all ${allTransactions.length} transactions`);
+            return allTransactions;
+        }
+
+        const filtered = allTransactions.filter(t => t.bankName === selectedBank);
+        console.log(`✅ [useTransactions] Filtered to ${filtered.length} transactions for bank "${selectedBank}"`);
+        return filtered;
     }, [allTransactions, selectedBank]);
+
+    useEffect(() => {
+        console.log(`📊 [useTransactions] Current state:`, {
+            totalTransactions: allTransactions.length,
+            filteredTransactions: transactions.length,
+            selectedBank,
+            availableBanks,
+            loading
+        });
+    }, [transactions, allTransactions, selectedBank, availableBanks, loading]);
 
     return {
         transactions,

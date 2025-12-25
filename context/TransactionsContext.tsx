@@ -41,6 +41,8 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
 
             // Fetch all pages
             while (hasMore) {
+                console.log(`🔍 [TransactionsContext] Fetching page ${page} for user: ${userEmail}`);
+
                 const { data, error } = await supabase
                     .from('transactions')
                     .select('id, date, description, amount, type, category, merchant_name, bank_name')
@@ -49,7 +51,13 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
                     .range(page * pageSize, (page + 1) * pageSize - 1);
 
                 if (error) {
-                    console.error('Error fetching transactions page:', page, error);
+                    console.error(`❌ [TransactionsContext] Error fetching transactions page ${page}:`, error);
+                    console.error(`❌ [TransactionsContext] Error details:`, {
+                        code: error.code,
+                        message: error.message,
+                        details: error.details,
+                        hint: error.hint
+                    });
                     break;
                 }
 
@@ -66,6 +74,20 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
             }
 
 
+            console.log(`🔍 [TransactionsContext] Fetched ${allData.length} transactions from database`);
+
+            // Log a sample to see what we got
+            if (allData.length > 0) {
+                console.log('📋 [TransactionsContext] Sample raw data:', {
+                    id: allData[0].id,
+                    date: allData[0].date,
+                    description: allData[0].description?.substring(0, 50),
+                    amount: allData[0].amount,
+                    category: allData[0].category,
+                    merchant_name: allData[0].merchant_name
+                });
+            }
+
             // Map Supabase rows to Transaction type
             const mappedTransactions: Transaction[] = allData.map(row => ({
                 date: row.date,
@@ -81,14 +103,24 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
                 id: row.id
             }));
 
+            console.log(`✅ [TransactionsContext] Mapped ${mappedTransactions.length} transactions`);
+            console.log('📋 [TransactionsContext] Sample mapped transaction:', {
+                date: mappedTransactions[0]?.date,
+                description: mappedTransactions[0]?.description?.substring(0, 50),
+                amount: mappedTransactions[0]?.amount,
+                category: mappedTransactions[0]?.category,
+                merchantName: mappedTransactions[0]?.merchantName
+            });
+
             setTransactions(mappedTransactions);
 
             // Extract available banks from the already fetched data
             const banks = Array.from(new Set(allData.map(row => row.bank_name).filter(Boolean))) as string[];
+            console.log(`🏦 [TransactionsContext] Available banks:`, banks);
             setAvailableBanks(banks);
 
         } catch (err) {
-            console.error('Unexpected error loading transactions:', err);
+            console.error('❌ [TransactionsContext] Unexpected error loading transactions:', err);
         } finally {
             setLoading(false);
         }

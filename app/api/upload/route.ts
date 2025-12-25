@@ -39,7 +39,7 @@ const sanitizeTransaction = (raw: any, userEmail: string, bankName: string, uplo
     const amountKey = findKey(/^amount$/i);
 
     let amount = 0;
-    let type = 'expense';
+    let type: 'income' | 'expense' = 'expense';
 
     const withdrawal = withdrawalKey ? parseVal(raw[withdrawalKey]) : 0;
     const deposit = depositKey ? parseVal(raw[depositKey]) : 0;
@@ -153,6 +153,20 @@ const storeTransactions = async (transactions: any[], userEmail: string, bankNam
         const batch = deduplicated.slice(i, i + BATCH_SIZE);
         console.log(`💾 Upserting batch of ${batch.length} transactions...`);
 
+        // Log a sample transaction from the first batch to help debug
+        if (i === 0 && batch.length > 0) {
+            console.log('📋 Sample transaction being stored:', JSON.stringify({
+                id: batch[0].id,
+                date: batch[0].date,
+                description: batch[0].description?.substring(0, 50),
+                amount: batch[0].amount,
+                type: batch[0].type,
+                category: batch[0].category,
+                merchant_name: batch[0].merchant_name,
+                bank_name: batch[0].bank_name
+            }, null, 2));
+        }
+
         // Final safety check for duplicate IDs in the batch
         const idsInBatch = batch.map((t: any) => t.id);
         const uniqueIdsInBatch = new Set(idsInBatch);
@@ -210,8 +224,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Rate Limit: 10 uploads per hour
-        const { allowed } = await checkRateLimit(session.user.email, 'categorization', 10, 1);
+        // Rate Limit: 100 uploads per hour (increased for testing)
+        const { allowed } = await checkRateLimit(session.user.email, 'categorization', 100, 1);
         if (!allowed) {
             return NextResponse.json({
                 error: 'Upload limit reached. Please try again in an hour.'
@@ -405,6 +419,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: `Unsupported file type: ${file.type}. Only CSV and Excel are supported.` }, { status: 400 });
         }
 
+        console.log(`📊 Parsed ${rawTransactions.length} raw transactions from file`);
+
+        // Log a sample of the raw data to help debug
+        if (rawTransactions.length > 0) {
+            console.log('📋 Sample raw transaction:', JSON.stringify(rawTransactions[0], null, 2));
+        }
+
         // 3. Fingerprint and Check for Manual Overrides
         // This saves AI cost by skipping transactions the user already manually categorized
         const fingerprinted = rawTransactions.map(t => {
@@ -443,51 +464,152 @@ export async function POST(request: Request) {
             return t;
         });
 
-        // 4. Store transactions IMMEDIATELY with basic categories (to avoid 504 timeout)
+        // 4. Store transactions IMMEDIATELY with basic categories
         console.log('💾 Storing transactions immediately...');
         await storeTransactions(transactionsWithOverrides, userEmail, bankName, file.name, fileHash, uploadId);
 
-        // 5. Return SUCCESS immediately - AI will process in background
-        const response = NextResponse.json({
-            transactions: transactionsWithOverrides,
-            message: 'Upload successful. AI categorization is processing in the background.',
-            uploadId
-        });
+        // 5. Process AI categorization SYNCHRONOUSLY (wait for completion)
+        console.log('🤖 Starting AI categorization...');
+        console.log(`📊 Processing ${transactionsWithOverrides.length} transactions for AI categorization`);
 
-        // 6. Process AI categorization in background (fire and forget)
-        // This won't block the response
-        (async () => {
-            try {
-                console.log('🤖 Starting background AI categorization...');
-                const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(
-                    transactionsWithOverrides,
-                    learnedKeywords,
-                    userEmail,
-                    uploadId
-                );
+        try {
+            // Properly sanitize all transactions for AI processing
+            const sanitizedForAI = transactionsWithOverrides.map(t =>
+                sanitizeTransaction(t, userEmail, bankName, uploadId)
+            );
 
-                // Update transactions with AI categories
-                const aiUpdates = categorized.map((t, i) => ({
-                    id: transactionsWithOverrides[i].id,
-                    category: t.category || 'Other',
-                    merchant_name: t.merchant_name || transactionsWithOverrides[i].merchant_name,
-                    ai_category: t.category || 'Other'
-                }));
+            console.log(`📋 Sanitized ${sanitizedForAI.length} transactions for AI`);
 
-                // Batch update
-                for (let i = 0; i < aiUpdates.length; i += 1000) {
-                    const batch = aiUpdates.slice(i, i + 1000);
-                    await supabaseAdmin.from('transactions').upsert(batch, { onConflict: 'id' });
+            const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(
+                sanitizedForAI,
+                learnedKeywords,
+                userEmail,
+                uploadId
+            );
+
+            console.log(`✅ AI categorization returned ${categorized.length} results`);
+
+            // Create a map of sanitized transactions by ID for quick lookup
+            const sanitizedMap = new Map();
+            sanitizedForAI.forEach(t => {
+                sanitizedMap.set(t.id, t);
+            });
+
+            // Update transactions with AI categories
+            const aiUpdates = categorized.map((t: any) => {
+                if (!t.id) {
+                    console.warn(`⚠️ Missing ID in AI result`);
+                    return null;
                 }
+                const original = sanitizedMap.get(t.id);
+                if (!original) {
+                    console.warn(`⚠️ Could not find original transaction for ID: ${t.id}`);
+                    return null;
+                }
+                // Include ALL required fields from original to prevent null constraint violations
+                return {
+                    id: t.id,
+                    user_email: original.user_email,
+                    date: original.date,
+                    description: original.description,
+                    amount: original.amount,
+                    type: original.type,
+                    bank_name: original.bank_name,
+                    upload_id: original.upload_id,
+                    category: t.category || 'Other',
+                    merchant_name: t.merchant_name || original.merchant_name || ''
+                };
+            }).filter(Boolean); // Remove null entries
 
-                await saveNewRules(newlyLearnedKeywords);
-                console.log('✅ Background AI categorization complete');
-            } catch (error) {
-                console.error('❌ Background AI categorization failed:', error);
+            console.log(`💾 Updating ${aiUpdates.length} transactions with AI categories...`);
+
+            // Log first few updates to see what we're sending
+            if (aiUpdates.length > 0) {
+                console.log('📋 Sample AI updates (first 3):', JSON.stringify(aiUpdates.slice(0, 3).map(u => ({
+                    id: u?.id,
+                    category: u?.category,
+                    merchant_name: u?.merchant_name
+                })), null, 2));
             }
-        })();
 
-        return response;
+            // Use direct UPDATE instead of upsert to avoid null constraint issues
+            let updatedCount = 0;
+            let failedCount = 0;
+
+            // Filter out any null values (TypeScript safety)
+            const validUpdates = aiUpdates.filter((u): u is NonNullable<typeof u> => u !== null);
+            console.log(`🔄 Starting UPDATE loop for ${validUpdates.length} valid updates...`);
+
+            for (const update of validUpdates) {
+                try {
+                    const { error } = await supabaseAdmin
+                        .from('transactions')
+                        .update({
+                            category: update.category,
+                            merchant_name: update.merchant_name
+                        })
+                        .eq('id', update.id);
+
+                    if (error) {
+                        console.error(`❌ Error updating transaction ${update.id}:`, error.message);
+                        failedCount++;
+                    } else {
+                        updatedCount++;
+                        // Log progress every 100 updates
+                        if (updatedCount % 100 === 0) {
+                            console.log(`⏳ Progress: ${updatedCount}/${validUpdates.length} updated...`);
+                        }
+                    }
+                } catch (err) {
+                    console.error(`❌ Exception updating transaction ${update.id}:`, err);
+                    failedCount++;
+                }
+            }
+
+            console.log(`✅ Successfully updated: ${updatedCount}/${aiUpdates.length} transactions`);
+            if (failedCount > 0) {
+                console.log(`❌ Failed to update: ${failedCount} transactions`);
+            }
+
+            await saveNewRules(newlyLearnedKeywords);
+            console.log('✅ AI categorization complete');
+
+            // Update upload status to show AI processing is complete
+            await supabaseAdmin.from('uploads').update({
+                status: 'ai_complete',
+                processed_count: transactionsWithOverrides.length
+            }).eq('id', uploadId);
+
+            // Return success with complete data
+            return NextResponse.json({
+                transactions: categorized,
+                newlyLearnedKeywords,
+                message: 'Upload and AI categorization completed successfully!',
+                uploadId
+            });
+
+        } catch (error) {
+            console.error('❌ AI categorization failed:', error);
+            console.error('Error stack:', (error as Error).stack);
+
+            // Update upload status to show error
+            try {
+                await supabaseAdmin.from('uploads').update({
+                    status: 'ai_failed',
+                    processed_count: transactionsWithOverrides.length
+                }).eq('id', uploadId);
+            } catch (updateError) {
+                console.error('❌ Failed to update upload status:', updateError);
+            }
+
+            // Return partial success - data is stored but AI failed
+            return NextResponse.json({
+                transactions: transactionsWithOverrides,
+                message: 'Upload successful but AI categorization failed. Transactions stored with default categories.',
+                uploadId,
+                warning: 'AI categorization failed'
+            });
+        }
 
     } catch (error) {
         console.error('Upload error:', error);
