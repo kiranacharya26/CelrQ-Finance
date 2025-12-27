@@ -201,32 +201,25 @@ export function getGoalRecommendations(
 
 // Save goal
 export async function saveGoal(userEmail: string, goal: Omit<Goal, 'id' | 'createdAt'>): Promise<Goal | null> {
-    const { data, error } = await supabase
-        .from('goals')
-        .insert({
-            user_email: userEmail,
-            name: goal.name,
-            type: goal.type,
-            target_amount: goal.targetAmount,
-            current_amount: goal.currentAmount,
-            deadline: goal.targetDate || null,
-            category: goal.category || null,
-            icon: goal.icon || null,
-        })
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error saving goal:', {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint
+    try {
+        const response = await fetch('/api/goals', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(goal)
         });
+
+        if (!response.ok) {
+            const error = await response.json();
+            console.error('Error saving goal:', error);
+            return null;
+        }
+
+        const { goal: savedGoal } = await response.json();
+        return mapGoal(savedGoal);
+    } catch (error) {
+        console.error('Error saving goal:', error);
         return null;
     }
-
-    return mapGoal(data);
 }
 
 // Get all goals
@@ -236,28 +229,26 @@ export async function getGoals(userEmail: string, includeCompleted = true): Prom
         return [];
     }
 
-    let query = supabase
-        .from('goals')
-        .select('*')
-        .eq('user_email', userEmail);
+    try {
+        const response = await fetch('/api/goals');
 
-    if (!includeCompleted) {
-        query = query.is('completed_at', null);
-    }
+        if (!response.ok) {
+            console.error('Error fetching goals');
+            return [];
+        }
 
-    const { data, error } = await query;
+        const { goals } = await response.json();
+        const mappedGoals = (goals || []).map(mapGoal);
 
-    if (error) {
-        console.error('Error fetching goals:', {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint
-        });
+        if (!includeCompleted) {
+            return mappedGoals.filter((g: Goal) => !g.completedAt);
+        }
+
+        return mappedGoals;
+    } catch (error) {
+        console.error('Error fetching goals:', error);
         return [];
     }
-
-    return (data || []).map(mapGoal);
 }
 
 // Update goal
