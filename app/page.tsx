@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { FileUpload } from '@/components/FileUpload';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { parseDate } from '@/lib/parser';
+
 import { useSession, signIn } from 'next-auth/react';
 import { UserStorage } from '@/lib/storage';
 import { Button } from '@/components/ui/button';

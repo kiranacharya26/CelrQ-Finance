@@ -24,13 +24,15 @@ import {
     DialogDescription
 } from '@/components/ui/dialog';
 import { Input } from "@/components/ui/input";
-import { Filter, Trash2, Download, X, Upload } from 'lucide-react';
+import { Filter, Trash2, Download, X, Upload, ShieldCheck } from 'lucide-react';
 import { DateRange } from '@/types';
 import { UploadHistory } from '@/components/UploadHistory';
 import { FileUpload } from '@/components/FileUpload';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactionsContext } from '@/context/TransactionsContext';
+
+import { UploadSummary } from '@/components/UploadSummary';
 
 interface DashboardHeaderProps {
     selectedBank: string;
@@ -62,6 +64,7 @@ export function DashboardHeader({
     const { userEmail } = useAuth();
     const { refresh } = useTransactionsContext();
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [summaryData, setSummaryData] = useState<any>(null);
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -70,15 +73,34 @@ export function DashboardHeader({
         return 'Good Evening';
     };
 
+    const handleUploadSuccess = (data: any) => {
+        setSummaryData(data);
+        refresh();
+    };
+
+    const handleCloseUpload = () => {
+        setIsUploadOpen(false);
+        setSummaryData(null);
+    };
+
     return (
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between pb-3 border-b mb-3">
-            <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight hidden md:block">Dashboard</h1>
-                <h1 className="text-2xl font-bold tracking-tight md:hidden">{getGreeting()}</h1>
-                <p className="text-sm text-muted-foreground">Overview of your financial health</p>
+            <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight hidden md:block">Dashboard</h1>
+                    <h1 className="text-2xl font-bold tracking-tight md:hidden">{getGreeting()}</h1>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 rounded-full">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Private & Secure</span>
+                    </div>
+                </div>
+                <p className="text-sm text-muted-foreground">Your data is never sold or shared with third parties.</p>
             </div>
             <div className="flex items-center gap-2">
-                <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+                <Dialog open={isUploadOpen} onOpenChange={(open) => {
+                    setIsUploadOpen(open);
+                    if (!open) setSummaryData(null);
+                }}>
                     <DialogTrigger asChild>
                         <Button className="shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40 hidden md:flex">
                             <Upload className="mr-2 h-4 w-4" /> Import Statement
@@ -86,79 +108,40 @@ export function DashboardHeader({
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
-                            <DialogTitle>Import Bank Statement</DialogTitle>
+                            <DialogTitle>{summaryData ? 'Statement Summary' : 'Import Bank Statement'}</DialogTitle>
                             <DialogDescription>
-                                Upload your bank statement (PDF, CSV, Excel) to analyze transactions.
+                                {summaryData
+                                    ? 'Here is a quick look at what we found in your statement.'
+                                    : 'Upload your bank statement (PDF, CSV, Excel) to analyze transactions.'}
                             </DialogDescription>
                         </DialogHeader>
-                        <div className="space-y-6 py-4">
-                            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
-                                <div className="mt-0.5">ℹ️</div>
-                                <div>
-                                    <strong>Tip:</strong> Name your files clearly (e.g., "HDFC-Aug-2024.pdf") to easily identify and manage them in your upload history later.
+
+                        {summaryData ? (
+                            <UploadSummary data={summaryData} onClose={handleCloseUpload} />
+                        ) : (
+                            <div className="space-y-6 py-4">
+                                <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+                                    <div className="mt-0.5">ℹ️</div>
+                                    <div>
+                                        <strong>Tip:</strong> Name your files clearly (e.g., "HDFC-Aug-2024.pdf") to easily identify and manage them in your upload history later.
+                                    </div>
                                 </div>
+                                <FileUpload onSuccess={handleUploadSuccess} />
+
+                                <div className="relative">
+                                    <div className="absolute inset-0 flex items-center">
+                                        <span className="w-full border-t" />
+                                    </div>
+                                    <div className="relative flex justify-center text-xs uppercase">
+                                        <span className="bg-background px-2 text-muted-foreground">
+                                            Or manage existing
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <UploadHistory />
                             </div>
-                            <FileUpload onUpload={async (file, bank) => {
-                                if (!userEmail) {
-                                    console.error('No user email found');
-                                    return;
-                                }
-
-                                const formData = new FormData();
-                                formData.append('file', file);
-                                formData.append('bankAccount', bank);
-                                formData.append('email', userEmail);
-
-                                try {
-                                    const response = await fetch('/api/upload', {
-                                        method: 'POST',
-                                        body: formData,
-                                    });
-
-                                    if (!response.ok) {
-                                        const text = await response.text();
-                                        let errorMessage = 'Upload failed';
-                                        try {
-                                            const json = JSON.parse(text);
-                                            errorMessage = json.error || errorMessage;
-                                        } catch (e) {
-                                            // If not JSON, use the text (truncated) or status text
-                                            errorMessage = text.slice(0, 100) || response.statusText;
-                                        }
-                                        throw new Error(`Server Error (${response.status}): ${errorMessage}`);
-                                    }
-
-                                    // Refresh context to update transactions and charts
-                                    refresh();
-
-                                    // Close dialog or show success message?
-                                    // For now, let's just log success. The UploadHistory component will also update if we trigger a re-fetch there,
-                                    // but UploadHistory fetches on mount/session change. We might need to trigger it to refresh too.
-                                    // Since UploadHistory is a child of this component, we can't easily trigger its internal fetch.
-                                    // However, `refresh()` updates the global transaction context.
-                                    // Ideally UploadHistory should also subscribe to some refresh trigger or we force re-render.
-                                    // But for now, the main goal is to update the dashboard data.
-                                    console.log('Upload successful');
-                                    setIsUploadOpen(false);
-                                } catch (error) {
-                                    console.error('Upload error:', error);
-                                    alert(`Upload failed: ${(error as Error).message}`);
-                                }
-                            }} />
-
-                            <div className="relative">
-                                <div className="absolute inset-0 flex items-center">
-                                    <span className="w-full border-t" />
-                                </div>
-                                <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-background px-2 text-muted-foreground">
-                                        Or manage existing
-                                    </span>
-                                </div>
-                            </div>
-
-                            <UploadHistory />
-                        </div>
+                        )}
                     </DialogContent>
                 </Dialog>
 

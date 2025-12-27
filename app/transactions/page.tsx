@@ -26,7 +26,33 @@ const TransactionTable = dynamic(() => import('@/components/TransactionTable').t
 
 function TransactionsContent() {
     const { userEmail, isAuthenticated } = useAuth();
-    const [selectedBank, setSelectedBank] = useState<string>('all');
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = '/transactions';
+
+    const monthParam = searchParams.get('month') || 'All Months';
+    const selectedBank = searchParams.get('bank') || 'all';
+
+    const setSelectedBank = (bank: string) => {
+        const params = new URLSearchParams(searchParams);
+        if (bank && bank !== 'all') {
+            params.set('bank', bank);
+        } else {
+            params.delete('bank');
+        }
+        router.replace(`${pathname}?${params.toString()}`);
+    };
+
+    const handleMonthChange = (month: string) => {
+        const params = new URLSearchParams(searchParams);
+        if (month && month !== 'All Months') {
+            params.set('month', month);
+        } else {
+            params.delete('month');
+        }
+        router.replace(`${pathname}?${params.toString()}`);
+    };
+
     const [activeUpload, setActiveUpload] = useState<any>(null);
 
     // Poll for active uploads
@@ -75,17 +101,9 @@ function TransactionsContent() {
         clearFilters,
     } = useTransactionFilters(transactions);
 
-    // Sync with URL params
-    const searchParams = useSearchParams();
-    const monthParam = searchParams.get('month');
-
     useEffect(() => {
-        if (monthParam) {
-            setMonthFilter(monthParam);
-        } else {
-            setMonthFilter('All Months');
-        }
-    }, [monthParam]);
+        setMonthFilter(monthParam);
+    }, [monthParam, setMonthFilter]);
 
     // Handler for category changes - refresh data but keep filters
     const handleCategoryChange = () => {
@@ -164,8 +182,6 @@ function TransactionsContent() {
         filters.dateRange.from !== null ||
         filters.dateRange.to !== null;
 
-    const router = useRouter();
-
     // Calculate unique months
     const months = useMemo(() => {
         const uniqueMonths = new Set<string>();
@@ -183,16 +199,6 @@ function TransactionsContent() {
             return new Date(b).getTime() - new Date(a).getTime();
         });
     }, [transactions]);
-
-    const handleMonthChange = (month: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (month === 'All Months') {
-            params.delete('month');
-        } else {
-            params.set('month', month);
-        }
-        router.push(`?${params.toString()}`);
-    };
 
     if (loading) {
         return <TransactionsSkeleton />;
@@ -233,7 +239,7 @@ function TransactionsContent() {
                 onExportCSV={() => exportToCSV(filteredTransactions)}
                 onExportPDF={() => exportToPDF(filteredTransactions)}
                 months={months}
-                selectedMonth={monthParam || 'All Months'}
+                selectedMonth={monthParam}
                 onMonthChange={handleMonthChange}
             />
 

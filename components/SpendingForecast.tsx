@@ -4,8 +4,10 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Transaction } from '@/types';
 import { generateForecast, ForecastAlert } from '@/lib/forecasting';
+import { ChartTooltip } from '@/components/charts/ChartTooltip';
 
 interface SpendingForecastProps {
     transactions: Transaction[];
@@ -79,90 +81,9 @@ export function SpendingForecast({ transactions }: SpendingForecastProps) {
                 </Card>
             )}
 
-            {/* Next Month Prediction */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>📈 Spending Overview</CardTitle>
-                    <CardDescription>Based on your spending patterns</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                            <p className="text-sm text-blue-500 font-medium">Total Spending</p>
-                            <p className="text-3xl font-bold mt-1">
-                                ₹{forecast.totalCurrent.toLocaleString('en-IN')}
-                            </p>
-                            <p className="text-xs text-blue-500/70 mt-1">Historical average</p>
-                        </div>
-                        <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
-                            <p className="text-sm text-purple-500 font-medium">Predicted Next Month</p>
-                            <p className="text-3xl font-bold mt-1">
-                                ₹{forecast.totalPredicted.toLocaleString('en-IN')}
-                            </p>
-                            {forecast.totalPredicted > forecast.totalCurrent && forecast.totalCurrent > 0 && (
-                                <p className="text-xs text-red-500 mt-1">
-                                    ↑ {Math.round(((forecast.totalPredicted - forecast.totalCurrent) / forecast.totalCurrent) * 100)}% higher
-                                </p>
-                            )}
-                            {forecast.totalPredicted < forecast.totalCurrent && forecast.totalCurrent > 0 && (
-                                <p className="text-xs text-green-500 mt-1">
-                                    ↓ {Math.round(((forecast.totalCurrent - forecast.totalPredicted) / forecast.totalCurrent) * 100)}% lower
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
 
-            {/* Category Breakdown */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Category Forecasts</CardTitle>
-                    <CardDescription>Predicted spending by category</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        {forecast.categoryForecasts.slice(0, 8).map((cat) => (
-                            <div key={cat.category} className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-medium text-sm">{cat.category}</span>
-                                        {getTrendIcon(cat.trend)}
-                                        {cat.trend !== 'stable' && (
-                                            <span className={`text-xs ${cat.trend === 'increasing' ? 'text-red-600' : 'text-green-600'}`}>
-                                                {cat.trendPercentage}%
-                                            </span>
-                                        )}
-                                        <Badge variant="outline" className="text-xs">
-                                            {cat.confidence}
-                                        </Badge>
-                                    </div>
-                                    <span className="text-sm font-bold">
-                                        ₹{cat.predictedNextMonth.toLocaleString('en-IN')}
-                                    </span>
-                                </div>
-                                <div className="flex gap-2 text-xs text-muted-foreground">
-                                    <span>Current: ₹{cat.currentMonthSpending.toLocaleString('en-IN')}</span>
-                                    <span>•</span>
-                                    <span>Avg: ₹{cat.averageMonthly.toLocaleString('en-IN')}</span>
-                                </div>
-                                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                    {(() => {
-                                        const maxPredicted = Math.max(...forecast.categoryForecasts.map(c => c.predictedNextMonth));
-                                        const widthPercent = Math.max((cat.predictedNextMonth / maxPredicted) * 100, 2);
-                                        return (
-                                            <div
-                                                className={`h-full transition-all ${cat.trend === 'increasing' ? 'bg-red-500' : cat.trend === 'decreasing' ? 'bg-green-500' : 'bg-blue-500'}`}
-                                                style={{ width: `${widthPercent}%` }}
-                                            />
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
+
+
 
             {/* Monthly Trend Chart */}
             <Card>
@@ -172,26 +93,40 @@ export function SpendingForecast({ transactions }: SpendingForecastProps) {
                 </CardHeader>
                 <CardContent>
                     {forecast.monthlyTrend.length > 0 ? (
-                        <div className="flex items-end justify-between gap-2 h-48 w-full">
-                            {forecast.monthlyTrend.map((month, i) => {
-                                const maxSpending = Math.max(...forecast.monthlyTrend.map(m => m.spending));
-                                const heightPercent = (month.spending / maxSpending) * 100;
-                                const heightPx = Math.max((heightPercent / 100) * 192, 20); // 192px = h-48, min 20px
-
-                                return (
-                                    <div key={i} className="flex-1 flex flex-col items-center gap-2 min-w-0">
-                                        <div
-                                            className="w-full bg-primary rounded-t-lg relative group transition-all hover:bg-primary/80"
-                                            style={{ height: `${heightPx}px` }}
-                                        >
-                                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                                                ₹{month.spending.toLocaleString('en-IN')}
-                                            </div>
-                                        </div>
-                                        <span className="text-xs text-muted-foreground truncate w-full text-center">{month.month.split(' ')[0]}</span>
-                                    </div>
-                                );
-                            })}
+                        <div className="h-64 w-full mt-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={forecast.monthlyTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                    <XAxis
+                                        dataKey="month"
+                                        stroke="#9ca3af"
+                                        fontSize={10}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickFormatter={(val) => val.split(' ')[0]}
+                                        tick={{ fill: '#6b7280', fontWeight: 500 }}
+                                    />
+                                    <YAxis
+                                        hide
+                                    />
+                                    <Tooltip content={<ChartTooltip />} />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="spending"
+                                        stroke="#6366f1"
+                                        strokeWidth={3}
+                                        fillOpacity={1}
+                                        fill="url(#trendGradient)"
+                                        animationDuration={1500}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center py-12 text-center">

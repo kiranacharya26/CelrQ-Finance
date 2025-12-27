@@ -114,7 +114,7 @@ export function SpendingInsights({ transactions, selectedMonth }: SpendingInsigh
                             </div>
                             <div className="text-right">
                                 <p className="text-sm font-semibold text-red-600">
-                                    ₹{expense.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    ₹{expense.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                 </p>
                             </div>
                         </div>

@@ -103,12 +103,12 @@ export function GoalTracker({ transactions }: GoalTrackerProps) {
                 <CardHeader className="px-4 sm:px-6 flex flex-row items-center justify-between space-y-0 pb-2 sm:pb-6">
                     <CardTitle className="flex items-center gap-2 min-w-0">
                         <Target className="h-4 w-4 sm:h-5 sm:w-5 text-teal-500 flex-shrink-0" />
-                        <span className="truncate text-base sm:text-lg">Financial Goals</span>
+                        <span className="truncate text-base sm:text-lg">Financial Intentions</span>
                     </CardTitle>
                     <div className="flex items-center gap-2">
                         <Button size="sm" onClick={handleAddGoal} className="flex-shrink-0 hidden sm:flex">
                             <Plus className="h-4 w-4 mr-1" />
-                            Add Goal
+                            Add Intention
                         </Button>
                     </div>
                 </CardHeader>
@@ -116,13 +116,13 @@ export function GoalTracker({ transactions }: GoalTrackerProps) {
                     {goalsWithProgress.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-8 text-center px-4">
                             <Target className="h-12 w-12 text-muted-foreground/50 mb-3" />
-                            <p className="text-sm font-medium text-muted-foreground mb-1">No goals yet</p>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">No intentions yet</p>
                             <p className="text-xs text-muted-foreground mb-4 px-4">
-                                Set a financial goal to start tracking your progress
+                                Set a financial intention to start noticing your progress
                             </p>
                             <Button size="sm" onClick={handleAddGoal}>
                                 <Plus className="h-4 w-4 mr-1" />
-                                Create Your First Goal
+                                Create Your First Intention
                             </Button>
                         </div>
                     ) : (
@@ -173,10 +173,10 @@ export function GoalTracker({ transactions }: GoalTrackerProps) {
                                                     <div className="min-w-0 flex-1">
                                                         <h4 className="font-semibold text-base truncate">{progress.goal.name}</h4>
                                                         <p className="text-sm text-muted-foreground truncate">
-                                                            {progress.goal.type === 'savings' && 'Savings Goal'}
-                                                            {progress.goal.type === 'spending-limit' && 'Spending Limit'}
+                                                            {progress.goal.type === 'savings' && 'Savings Pattern'}
+                                                            {progress.goal.type === 'spending-limit' && 'Spending Pattern'}
                                                             {progress.goal.type === 'debt-payoff' && 'Debt Payoff'}
-                                                            {progress.goal.type === 'custom' && 'Custom Goal'}
+                                                            {progress.goal.type === 'custom' && 'Custom Intention'}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -251,7 +251,7 @@ export function GoalTracker({ transactions }: GoalTrackerProps) {
                                         <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
                                             <Plus className="h-6 w-6" />
                                         </div>
-                                        <span className="font-medium">Add New Goal</span>
+                                        <span className="font-medium">Add New Intention</span>
                                     </button>
                                 </div>
                             </div>

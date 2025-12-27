@@ -61,12 +61,15 @@ export function Navbar() {
     }, [session]);
 
     const monthParam = searchParams.get('month');
+    const bankParam = searchParams.get('bank');
 
     const getLinkWithParams = (path: string) => {
-        if (monthParam) {
-            return `${path}?month=${encodeURIComponent(monthParam)}`;
-        }
-        return path;
+        const params = new URLSearchParams();
+        if (monthParam) params.set('month', monthParam);
+        if (bankParam) params.set('bank', bankParam);
+
+        const queryString = params.toString();
+        return queryString ? `${path}?${queryString}` : path;
     };
 
     return (
@@ -114,22 +117,8 @@ export function Navbar() {
                         >
                             Insights
                         </Link>
-                        <Link
-                            href={getLinkWithParams('/dashboard/subscriptions')}
-                            className={`transition-colors hover:text-foreground/80 ${pathname === '/dashboard/subscriptions' ? 'text-foreground' : 'text-foreground/60'
-                                }`}
-                            aria-current={pathname === '/dashboard/subscriptions' ? 'page' : undefined}
-                        >
-                            Subscriptions
-                        </Link>
-                        <Link
-                            href={getLinkWithParams('/dashboard/cashflow')}
-                            className={`transition-colors hover:text-foreground/80 ${pathname === '/dashboard/cashflow' ? 'text-foreground' : 'text-foreground/60'
-                                }`}
-                            aria-current={pathname === '/dashboard/cashflow' ? 'page' : undefined}
-                        >
-                            Cash Flow
-                        </Link>
+
+
                     </nav>
                 )}
 
@@ -292,20 +281,8 @@ export function Navbar() {
                                             >
                                                 Insights
                                             </Link>
-                                            <Link
-                                                href={getLinkWithParams('/dashboard/subscriptions')}
-                                                className={`text-lg font-medium transition-colors hover:text-primary ${pathname === '/dashboard/subscriptions' ? 'text-primary' : 'text-muted-foreground'}`}
-                                                onClick={() => setMobileMenuOpen(false)}
-                                            >
-                                                Subscriptions
-                                            </Link>
-                                            <Link
-                                                href={getLinkWithParams('/dashboard/cashflow')}
-                                                className={`text-lg font-medium transition-colors hover:text-primary ${pathname === '/dashboard/cashflow' ? 'text-primary' : 'text-muted-foreground'}`}
-                                                onClick={() => setMobileMenuOpen(false)}
-                                            >
-                                                Cash Flow
-                                            </Link>
+
+
                                         </>
                                     )}
                                     <Button

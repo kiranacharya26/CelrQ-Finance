@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { Transaction } from '@/types';
+import { parseDate } from './dateParser';
 
 
 export async function parseCSV(content: string): Promise<any[]> {
@@ -92,56 +93,109 @@ export function extractTransactionsFromText(text: string): Transaction[] {
     return transactions;
 }
 
-export function parseDate(val: any): Date | null {
-    if (!val) return null;
+// @ts-ignore
+import PDFParser from 'pdf2json';
+import { openai } from './categorizer';
 
-    // If it's already a Date object, we want to ensure it's treated as a calendar date
-    if (val instanceof Date) {
-        // If it's a valid date, return a new Date at UTC midnight of that local date
-        if (!isNaN(val.getTime())) {
-            return new Date(Date.UTC(val.getFullYear(), val.getMonth(), val.getDate()));
-        }
-        return null;
+export async function parsePDF(buffer: Buffer): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+        const pdfParser = new PDFParser(null, true); // true = enable text content extraction
+
+        pdfParser.on("pdfParser_dataError", (errData: any) => {
+            console.error('PDF Parser Error:', errData.parserError);
+            reject(new Error(errData.parserError));
+        });
+
+        pdfParser.on("pdfParser_dataReady", async (pdfData: any) => {
+            try {
+                // Extract raw text content
+                const text = pdfParser.getRawTextContent();
+
+                if (!text || text.trim().length === 0) {
+                    reject(new Error('PDF is empty or could not be read'));
+                    return;
+                }
+
+                // Limit text to first 30000 chars
+                const truncatedText = text.slice(0, 30000);
+                console.log(`📄 PDF Text extracted (${text.length} chars). Sending to AI...`);
+
+                if (!openai) {
+                    reject(new Error('OpenAI API key not configured'));
+                    return;
+                }
+
+                const prompt = `
+**TASK**: Extract financial transactions from the following BANK STATEMENT text into a JSON array.
+
+**INPUT TEXT**:
+"""
+${truncatedText}
+"""
+
+**INSTRUCTIONS**:
+1. Identify the main transaction table. Ignore headers, footers, legal text, and summary tables.
+2. Extract: Date, Description (Narration), Withdrawal Amount (Debit), and Deposit Amount (Credit).
+3. **Date**: Convert to YYYY-MM-DD format.
+4. **Withdrawal**: The amount debited/withdrawn. If none, set to 0.
+5. **Deposit**: The amount credited/deposited. If none, set to 0.
+6. **Description**: Combine multi-line descriptions into one string. Clean up extra spaces.
+
+**OUTPUT FORMAT**:
+Return ONLY a JSON object with a "transactions" key containing the array.
+{
+  "transactions": [
+    {
+      "date": "YYYY-MM-DD",
+      "description": "Transaction details...",
+      "withdrawal": 100.00,
+      "deposit": 0
+    },
+    {
+      "date": "YYYY-MM-DD",
+      "description": "Salary",
+      "withdrawal": 0,
+      "deposit": 5000.00
     }
-
-    // Handle Excel serial dates (numbers)
-    if (typeof val === 'number') {
-        // Excel base date is Jan 1, 1900
-        // Days since Dec 30, 1899
-        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-        return new Date(excelEpoch.getTime() + val * 86400 * 1000);
-    }
-
-    const strVal = String(val).trim();
-
-    // Try ISO format first (YYYY-MM-DD)
-    const isoMatch = strVal.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if (isoMatch) {
-        return new Date(Date.UTC(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3])));
-    }
-
-    // Try common formats
-    // DD/MM/YYYY or DD-MM-YYYY
-    const dmyMatch = strVal.match(/^(\d{1,2})[\\/\-](\d{1,2})[\\/\-](\d{4})$/);
-    if (dmyMatch) {
-        return new Date(Date.UTC(parseInt(dmyMatch[3]), parseInt(dmyMatch[2]) - 1, parseInt(dmyMatch[1])));
-    }
-
-    // DD/MM/YY or DD-MM-YY
-    const dmyShortMatch = strVal.match(/^(\d{1,2})[\\/\-](\d{1,2})[\\/\-](\d{2})$/);
-    if (dmyShortMatch) {
-        const year = parseInt(dmyShortMatch[3]);
-        const fullYear = year < 50 ? 2000 + year : 1900 + year;
-        return new Date(Date.UTC(fullYear, parseInt(dmyShortMatch[2]) - 1, parseInt(dmyShortMatch[1])));
-    }
-
-    // Try standard Date.parse
-    const parsed = Date.parse(strVal);
-    if (!isNaN(parsed)) {
-        const d = new Date(parsed);
-        // Convert to UTC midnight of whatever date was parsed
-        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    }
-
-    return null;
+  ]
 }
+`;
+
+                const response = await openai.chat.completions.create({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        { role: "system", content: "You are a precise data extraction assistant. You convert unstructured bank statement text into structured JSON." },
+                        { role: "user", content: prompt }
+                    ],
+                    temperature: 0,
+                    response_format: { type: "json_object" }
+                });
+
+                const content = response.choices[0].message.content;
+                if (!content) {
+                    reject(new Error('AI returned empty response'));
+                    return;
+                }
+
+                const parsed = JSON.parse(content);
+
+                if (!parsed.transactions || !Array.isArray(parsed.transactions)) {
+                    reject(new Error('AI failed to extract transactions array'));
+                    return;
+                }
+
+                console.log(`✅ AI extracted ${parsed.transactions.length} transactions from PDF`);
+                resolve(parsed.transactions);
+
+            } catch (error) {
+                console.error('Error processing PDF text with AI:', error);
+                reject(error);
+            }
+        });
+
+        // Parse the buffer
+        pdfParser.parseBuffer(buffer);
+    });
+}
+
+export { parseDate } from './dateParser';

@@ -230,7 +230,7 @@ ${CATEGORIES.join(', ')}
    - If you see "Amazon", "Flipkart", "Myntra", "Ajio", "Meesho", "Nykaa" -> **Online Shopping**.
    - If you see "Airtel", "Jio", "Vi", "Recharge", "Postpaid", "Bill Payment" -> **Telecom** or **Utilities**.
    - If you see "Uber", "Ola", "Rapido", "Namma Yatri", "Metro", "Travels" -> **Ride Services** or **Travel & Transport**.
-   - If you see "Zerodha", "Groww", "Upstox", "Angel One", "Securities", "Broking", "Capital", "Ventures", "Mutual Fund", "SIP", "Invest" -> **Investments**.
+   - If you see "Zerodha", "Groww", "Upstox", "Angel One", "Securities", "Broking", "Capital", "Ventures", "Mutual Fund", "SIP", "Invest", "Indian Clearing Corp", "BSE", "NSE", "ICC", "NMF" -> **Investments**.
 4. **Ignore Payment Apps**: "CRED", "PAYTM", "PHONEPE", "GPAY" are just gateways. Look for the *actual* merchant name in the string.
 
 **OUTPUT FORMAT**:

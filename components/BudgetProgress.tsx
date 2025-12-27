@@ -68,7 +68,7 @@ export function BudgetProgress({ transactions, selectedMonth }: BudgetProgressPr
             <CardHeader className="px-4 sm:px-6">
                 <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
                     <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-500 flex-shrink-0" />
-                    <span className="truncate">Budget Progress</span>
+                    <span className="truncate">Baseline Progress</span>
                 </CardTitle>
             </CardHeader>
             <CardContent className="px-4 sm:px-6">
@@ -82,9 +82,9 @@ export function BudgetProgress({ transactions, selectedMonth }: BudgetProgressPr
                                 </div>
                                 <div className="text-muted-foreground">
                                     <span className={isOverBudget ? 'text-destructive font-medium' : ''}>
-                                        ₹{spent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                        ₹{spent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                     </span>
-                                    <span className="text-xs ml-1">/ ₹{amount.toLocaleString()}</span>
+                                    <span className="text-xs ml-1">/ ₹{amount.toLocaleString('en-IN')}</span>
                                 </div>
                             </div>
                             <Progress

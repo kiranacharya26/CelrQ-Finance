@@ -7,8 +7,8 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { DashboardHero } from '@/components/DashboardHero';
 
-import { AIInsightsDashboard } from '@/components/AIInsightsDashboard';
-import { InvestmentPortfolio } from '@/components/InvestmentPortfolio';
+
+
 
 // Lazy load components
 import { InsightSkeleton, ChartSkeleton, StatsSkeleton } from '@/components/LoadingSkeletons';
@@ -22,18 +22,20 @@ const SpendingForecast = dynamic(() => import('@/components/SpendingForecast').t
     ssr: false,
 });
 
-const SubscriptionTracker = dynamic(() => import('@/components/SubscriptionTracker').then(mod => ({ default: mod.SubscriptionTracker })), {
+const GoalTracker = dynamic(() => import('@/components/GoalTracker').then(mod => ({ default: mod.GoalTracker })), {
     loading: () => <StatsSkeleton />,
     ssr: false,
 });
 
-const BudgetProgress = dynamic(() => import('@/components/BudgetProgress').then(mod => ({ default: mod.BudgetProgress })), {
+const BudgetManager = dynamic(() => import('@/components/BudgetManager').then(mod => ({ default: mod.BudgetManager })), {
     loading: () => <ChartSkeleton />,
 });
 
-const SpendingInsights = dynamic(() => import('@/components/SpendingInsights').then(mod => ({ default: mod.SpendingInsights })), {
-    loading: () => <ChartSkeleton />,
-});
+
+
+
+
+
 
 function InsightsContent() {
     const { userEmail, isAuthenticated } = useAuth();
@@ -41,10 +43,11 @@ function InsightsContent() {
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const selectedMonth = searchParams.get('month') || "All Months";
+    const selectedBank = searchParams.get('bank') || "all";
 
     const { transactions, loading } = useTransactions({
         userEmail,
-        selectedBank: 'all',
+        selectedBank,
     });
 
     // Helper to safely parse float from string or number
@@ -155,9 +158,9 @@ function InsightsContent() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="space-y-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Advanced Insights</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Financial Clarity</h1>
                     <p className="text-muted-foreground">
-                        Deep dive into your spending patterns, forecasts, and AI-powered recommendations
+                        Understand your spending patterns, notice drifts, and discover insights.
                     </p>
                 </div>
 
@@ -180,45 +183,37 @@ function InsightsContent() {
                 )}
             </div>
 
-            {/* Hero Stats Cards */}
-            <DashboardHero
-                transactions={filteredTransactions}
-                totalIncome={totalIncome}
-                totalExpenses={totalExpenses}
-                netSavings={netSavings}
-            />
 
-            {/* Main Content - Masonry-like Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-                {/* Left Column */}
-                <div className="space-y-6 w-full">
-                    {/* AI Smart Insights */}
-                    <div className="w-full">
-                        <AIInsightsDashboard transactions={filteredTransactions} />
-                    </div>
+            {/* Main Content - Column-based Layout for Tight Stacking */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-                    {/* Subscription Tracker */}
-                    <div className="w-full">
-                        <Suspense fallback={<StatsSkeleton />}>
-                            <SubscriptionTracker transactions={filteredTransactions} />
-                        </Suspense>
-                    </div>
-
-                    {/* Budget Progress */}
-                    <div className="w-full">
-                        <Suspense fallback={<ChartSkeleton />}>
-                            <BudgetProgress transactions={filteredTransactions} selectedMonth={selectedMonth} />
-                        </Suspense>
-                    </div>
-                </div>
-
-                {/* Right Column */}
-                <div className="space-y-6 w-full">
+                {/* Left Column (Main Content) - Spans 2 cols */}
+                <div className="lg:col-span-2 space-y-6 w-full">
                     {/* Spending Forecast */}
                     <div className="w-full">
                         <Suspense fallback={<ChartSkeleton />}>
                             <SpendingForecast transactions={filteredTransactions} />
+                        </Suspense>
+                    </div>
+                </div>
+
+                {/* Right Column (Sidebar Content) - Spans 1 col */}
+                <div className="space-y-6 w-full">
+                    {/* Goals */}
+                    <div className="w-full">
+                        <Suspense fallback={<StatsSkeleton />}>
+                            <GoalTracker transactions={filteredTransactions} />
+                        </Suspense>
+                    </div>
+
+                    {/* Budget Manager */}
+                    <div className="w-full">
+                        <Suspense fallback={<ChartSkeleton />}>
+                            <BudgetManager
+                                transactions={filteredTransactions}
+                                currentMonth={selectedMonth === 'All Months' ? new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) : selectedMonth}
+                            />
                         </Suspense>
                     </div>
                 </div>

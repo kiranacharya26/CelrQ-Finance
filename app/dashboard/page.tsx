@@ -2,7 +2,7 @@
 
 import { useState, useMemo, Suspense, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { parseDate } from '@/lib/parser';
+import { parseDate } from '@/lib/dateParser';
 import { DateRange } from '@/types';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
@@ -14,20 +14,15 @@ const DashboardCharts = dynamic(() => import('@/components/DashboardCharts').the
     ssr: false,
 });
 
-const BudgetProgress = dynamic(() => import('@/components/BudgetProgress').then(mod => ({ default: mod.BudgetProgress })), {
-    loading: () => <div className="h-[200px] bg-muted animate-pulse rounded"></div>,
-});
+
 
 const SpendingInsights = dynamic(() => import('@/components/SpendingInsights').then(mod => ({ default: mod.SpendingInsights })), {
     loading: () => <div className="h-[200px] bg-muted animate-pulse rounded"></div>,
 });
 
-const GoalTracker = dynamic(() => import('@/components/GoalTracker').then(mod => ({ default: mod.GoalTracker })), {
-    loading: () => <div className="h-[250px] bg-muted animate-pulse rounded"></div>,
-    ssr: false,
-});
 
-import { BudgetManager } from '@/components/BudgetManager';
+
+
 
 import { BankConnections } from '@/components/BankConnections';
 import { DashboardHero } from '@/components/DashboardHero';
@@ -48,6 +43,7 @@ function DashboardContent() {
 
     // Initialize from URL or default
     const selectedMonth = searchParams.get('month') || "All Months";
+    const selectedBank = searchParams.get('bank') || "all";
 
     const setSelectedMonth = (month: string) => {
         const params = new URLSearchParams(searchParams);
@@ -59,7 +55,16 @@ function DashboardContent() {
         router.replace(`${pathname}?${params.toString()}`);
     };
 
-    const [selectedBank, setSelectedBank] = useState<string>("all");
+    const setSelectedBank = (bank: string) => {
+        const params = new URLSearchParams(searchParams);
+        if (bank && bank !== "all") {
+            params.set('bank', bank);
+        } else {
+            params.delete('bank');
+        }
+        router.replace(`${pathname}?${params.toString()}`);
+    };
+
     const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
 
     const { transactions, availableBanks, loading, deleteBank } = useTransactions({
@@ -303,13 +308,7 @@ function DashboardContent() {
                 <InvestmentPortfolio transactions={filteredTransactions} />
             </div>
 
-            {/* Mobile Only: Budget Stories */}
-            <div className="md:hidden w-full">
-                <BudgetManager
-                    transactions={filteredTransactions}
-                    currentMonth={selectedMonth === 'All Months' ? new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) : selectedMonth}
-                />
-            </div>
+
 
             {/* Main Content - Column-based Layout for Tight Stacking */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -317,7 +316,7 @@ function DashboardContent() {
                 {/* Left Column (Main Content) - Spans 2 cols */}
                 <div className="lg:col-span-2 space-y-6 w-full">
 
-                    {/* Charts */}
+                    {/* Monthly Expenses - NOW AT TOP */}
                     <div className="w-full">
                         <Suspense fallback={<ChartSkeleton />}>
                             <DashboardCharts
@@ -327,6 +326,22 @@ function DashboardContent() {
                                 withdrawalKey={withdrawalKey}
                                 categoryKey={categoryKey}
                                 dateKey={dateKey}
+                                showOnly="monthly"
+                            />
+                        </Suspense>
+                    </div>
+
+                    {/* Spending by Category */}
+                    <div className="w-full">
+                        <Suspense fallback={<ChartSkeleton />}>
+                            <DashboardCharts
+                                transactions={filteredTransactions}
+                                amountKey={amountKey}
+                                depositKey={depositKey}
+                                withdrawalKey={withdrawalKey}
+                                categoryKey={categoryKey}
+                                dateKey={dateKey}
+                                showOnly="category"
                             />
                         </Suspense>
                     </div>
@@ -334,10 +349,19 @@ function DashboardContent() {
 
                 {/* Right Column (Sidebar Content) - Spans 1 col */}
                 <div className="space-y-6 w-full">
-                    {/* Goals */}
+
+                    {/* Top Categories Donut - NOW IN SIDEBAR */}
                     <div className="w-full">
-                        <Suspense fallback={<div className="h-[250px] bg-muted animate-pulse rounded-xl"></div>}>
-                            <GoalTracker transactions={filteredTransactions} />
+                        <Suspense fallback={<ChartSkeleton />}>
+                            <DashboardCharts
+                                transactions={filteredTransactions}
+                                amountKey={amountKey}
+                                depositKey={depositKey}
+                                withdrawalKey={withdrawalKey}
+                                categoryKey={categoryKey}
+                                dateKey={dateKey}
+                                showOnly="pie"
+                            />
                         </Suspense>
                     </div>
 
@@ -349,14 +373,6 @@ function DashboardContent() {
                                 selectedMonth={selectedMonth}
                             />
                         </Suspense>
-                    </div>
-
-                    {/* Budget Manager - Desktop Only (Sidebar) */}
-                    <div className="hidden md:block w-full">
-                        <BudgetManager
-                            transactions={filteredTransactions}
-                            currentMonth={selectedMonth === 'All Months' ? new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) : selectedMonth}
-                        />
                     </div>
                 </div>
             </div>

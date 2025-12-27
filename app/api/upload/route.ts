@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { parseCSV, parseExcel, parseDate } from '@/lib/parser';
+import { parseCSV, parseExcel, parseDate, parsePDF } from '@/lib/parser';
 import { categorizeTransactions } from '@/lib/categorizer';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
@@ -17,13 +17,13 @@ const sanitizeTransaction = (raw: any, userEmail: string, bankName: string, uplo
     const findKey = (pattern: RegExp) => Object.keys(raw).find(k => pattern.test(k));
 
     // 1. Date
-    const dateKey = findKey(/date/i);
+    const dateKey = findKey(/\bdate\b/i);
     const rawDate = raw[dateKey || ''] || raw['Date'];
     const parsedDate = parseDate(rawDate);
     const dateStr = parsedDate ? parsedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
 
     // 2. Description
-    const descKey = findKey(/narration|description|particulars/i);
+    const descKey = findKey(/\b(narration|description|particulars|details|remarks)\b/i);
     const description = raw[descKey || ''] || raw['Description'] || 'No Description';
 
     // 3. Amount & Type
@@ -34,8 +34,8 @@ const sanitizeTransaction = (raw: any, userEmail: string, bankName: string, uplo
         return parseFloat(String(v).replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0;
     };
 
-    const withdrawalKey = findKey(/withdrawal|debit|dr/i);
-    const depositKey = findKey(/deposit|credit|cr/i);
+    const withdrawalKey = findKey(/\b(withdrawal|debit|dr)\b/i);
+    const depositKey = findKey(/\b(deposit|credit|cr)\b/i);
     const amountKey = findKey(/^amount$/i);
 
     let amount = 0;
@@ -53,9 +53,26 @@ const sanitizeTransaction = (raw: any, userEmail: string, bankName: string, uplo
     } else if (amountKey) {
         const val = parseVal(raw[amountKey]);
         amount = Math.abs(val);
-        if (val < 0) type = 'expense';
-        else type = 'income'; // Default to income if positive and single column? Or expense? 
-        // Let's assume expense if we can't tell, to be safe? No, let's default to expense.
+
+        // Check if we have an explicit type field
+        const typeKey = findKey(/type|d\/c/i);
+        const rawType = typeKey ? String(raw[typeKey]).toLowerCase() : '';
+
+        if (val < 0) {
+            type = 'expense';
+        } else if (rawType.includes('expense') || rawType.includes('debit') || rawType.includes('dr') || rawType === 'd') {
+            type = 'expense';
+        } else if (rawType.includes('income') || rawType.includes('credit') || rawType.includes('cr') || rawType === 'c') {
+            type = 'income';
+        } else {
+            // Default to expense if we can't tell (safer assumption for bank statements usually)
+            // But wait, usually positive amount without type means credit? 
+            // Actually, for PDF parser we explicitly return 'type'.
+            // For CSVs with single amount column, usually negative is expense.
+            // If it's positive and no type, it's ambiguous.
+            // Let's default to income if positive and no type, BUT if we have type, use it.
+            type = 'income';
+        }
     }
 
     // 4. Generate a stable ID (Fingerprint) for deduplication
@@ -414,9 +431,12 @@ export async function POST(request: Request) {
             file.name.endsWith('.xls')
         ) {
             rawTransactions = await parseExcel(buffer);
+        } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+            console.log('📄 PDF detected. Using AI extraction...');
+            rawTransactions = await parsePDF(buffer);
         } else {
             console.warn('Unsupported file type:', file.type);
-            return NextResponse.json({ error: `Unsupported file type: ${file.type}. Only CSV and Excel are supported.` }, { status: 400 });
+            return NextResponse.json({ error: `Unsupported file type: ${file.type}. Only CSV, Excel, and PDF are supported.` }, { status: 400 });
         }
 
         console.log(`📊 Parsed ${rawTransactions.length} raw transactions from file`);

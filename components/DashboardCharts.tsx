@@ -18,6 +18,7 @@ interface DashboardChartsProps {
     withdrawalKey?: string;
     categoryKey?: string;
     dateKey?: string;
+    showOnly?: 'monthly' | 'category' | 'pie';
 }
 
 export function DashboardCharts({
@@ -27,6 +28,7 @@ export function DashboardCharts({
     withdrawalKey,
     categoryKey,
     dateKey,
+    showOnly
 }: DashboardChartsProps) {
     // Month range filter state via custom hook
     const { monthRange, setFromMonth, setToMonth, clearRange, isDateInRange } = useMonthRangeFilter();
@@ -37,6 +39,41 @@ export function DashboardCharts({
         { amountKey, depositKey, withdrawalKey, categoryKey, dateKey },
         isDateInRange
     );
+
+    if (showOnly === 'category') {
+        return <SpendingByCategory categoryData={categoryData} />;
+    }
+
+    if (showOnly === 'pie') {
+        return <TopCategoriesPie categoryData={categoryData} />;
+    }
+
+    if (showOnly === 'monthly') {
+        return (
+            <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 w-full overflow-hidden flex flex-col">
+                <CardHeader className="px-4 sm:px-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <CardTitle className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500 flex-shrink-0" />
+                            <span className="truncate">Monthly Expenses</span>
+                            <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                                {getCurrentFinancialYear().label}
+                            </span>
+                        </CardTitle>
+                        <MonthRangeFilter
+                            monthRange={monthRange}
+                            onFromChange={setFromMonth}
+                            onToChange={setToMonth}
+                            onClear={clearRange}
+                        />
+                    </div>
+                </CardHeader>
+                <CardContent className="px-0 sm:px-2 md:px-6 w-full flex-1">
+                    <MonthlyExpenses monthlyData={monthlyData} />
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <div className="flex flex-col gap-6 w-full">

@@ -37,7 +37,7 @@ export function analyzeInvestments(transactions: Transaction[]): Record<string, 
 
     // Regex patterns for safer matching of short acronyms
     const SAFE_PATTERNS = {
-        'Mutual Funds': [/\bMF\b/i, /\bAMC\b/i, /\bSIP\b/i, /NIPPON/i, /HDFC MUTUAL/i, /ICICI PRU/i, /SBI MUTUAL/i, /AXIS MUTUAL/i, /MIRAIE/i, /PARAG PARIKH/i, /QUANT/i, /GROWW/i, /CAMS/i, /KARVY/i],
+        'Mutual Funds': [/\bMF\b/i, /\bAMC\b/i, /\bSIP\b/i, /NIPPON/i, /HDFC MUTUAL/i, /ICICI PRU/i, /SBI MUTUAL/i, /AXIS MUTUAL/i, /MIRAIE/i, /PARAG PARIKH/i, /QUANT/i, /GROWW/i, /CAMS/i, /KARVY/i, /INDIAN CLEARING CORP/i, /ICC/i, /NMF/i, /BSE/i],
         'Stocks': [/ZERODHA/i, /KITE/i, /UPSTOX/i, /ANGELONE/i, /5PAISA/i, /GROWW STOCKS/i, /INDMONEY/i, /VESTED/i, /BROKING/i, /SECURITIES/i, /CAPITAL/i],
         'Fixed Deposits': [/\bFD\b/i, /FIXED DEPOSIT/i, /TERM DEPOSIT/i, /TFR TO FD/i],
         'Recurring Deposits': [/\bRD\b/i, /RECURRING DEPOSIT/i, /RD INSTALLMENT/i]

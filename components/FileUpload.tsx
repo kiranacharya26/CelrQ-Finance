@@ -15,10 +15,11 @@ import { UserStorage } from '@/lib/storage';
 import { useSession } from 'next-auth/react';
 
 interface FileUploadProps {
-    onUpload: (file: File, bankAccount: string) => Promise<void>;
+    onUpload?: (file: File, bankAccount: string) => Promise<void>;
+    onSuccess?: (data: any) => void;
 }
 
-export function FileUpload({ onUpload }: FileUploadProps) {
+export function FileUpload({ onUpload, onSuccess }: FileUploadProps) {
     const router = useRouter();
     const [file, setFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -84,7 +85,8 @@ export function FileUpload({ onUpload }: FileUploadProps) {
         accept: {
             'text/csv': ['.csv'],
             'application/vnd.ms-excel': ['.xls'],
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+            'application/pdf': ['.pdf']
         },
         maxFiles: 1,
     });
@@ -142,13 +144,37 @@ export function FileUpload({ onUpload }: FileUploadProps) {
                 });
             }, 800);
 
-            await onUpload(file, selectedBank);
+            // Capture the response data
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('bankAccount', selectedBank);
+            formData.append('email', userEmail || '');
+
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || 'Upload failed');
+            }
+
+            const data = await response.json();
 
             clearInterval(progressInterval);
             clearInterval(timerInterval);
             setProgress(100);
             setEstimatedTimeRemaining(0);
+
             if (userEmail) UserStorage.saveData(userEmail, 'current_upload', null);
+
+            // Pass the data back to parent
+            if (onSuccess) {
+                onSuccess(data);
+            }
+
+            return data;
         } catch (error: any) {
             console.error('Upload failed', error);
             clearInterval(timerInterval);
@@ -157,6 +183,7 @@ export function FileUpload({ onUpload }: FileUploadProps) {
             // Show specific error message
             const message = error.message || 'Failed to upload file';
             alert(`Upload Error: ${message}`);
+            throw error;
         } finally {
             setIsUploading(false);
         }
@@ -261,7 +288,7 @@ export function FileUpload({ onUpload }: FileUploadProps) {
                                 {selectedBank ? 'Drag & drop your statement here' : 'Select a bank account first'}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                                CSV or Excel (max 10MB)
+                                CSV, Excel, or PDF (max 10MB)
                             </p>
                         </div>
                     </div>

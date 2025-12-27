@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Transaction, TransactionFilters, DateRange } from '@/types';
-import { parseDate } from '@/lib/parser';
+import { parseDate } from '@/lib/dateParser';
 
 /**
  * Custom hook for filtering and searching transactions
@@ -83,35 +83,38 @@ export function useTransactionFilters(transactions: Transaction[]) {
         return result;
     }, [transactions, filters, dateKey]);
 
-    const setSearchQuery = (query: string) => {
+    const setSearchQuery = useCallback((query: string) => {
         setFilters((prev) => ({ ...prev, searchQuery: query }));
-    };
+    }, []);
 
-    const setCategoryFilter = (category: string) => {
+    const setCategoryFilter = useCallback((category: string) => {
         setFilters((prev) => ({ ...prev, categoryFilter: category }));
-    };
+    }, []);
 
-    const setTagFilter = (tag: string) => {
+    const setTagFilter = useCallback((tag: string) => {
         setFilters((prev) => ({ ...prev, tagFilter: tag }));
-    };
+    }, []);
 
-    const setTypeFilter = (type: string) => {
+    const setTypeFilter = useCallback((type: string) => {
         setFilters((prev) => ({ ...prev, typeFilter: type }));
-    };
+    }, []);
 
-    const setSortBy = (sort: string) => {
+    const setSortBy = useCallback((sort: string) => {
         setFilters((prev) => ({ ...prev, sortBy: sort }));
-    };
+    }, []);
 
-    const setDateRange = (range: DateRange) => {
+    const setDateRange = useCallback((range: DateRange) => {
         setFilters((prev) => ({ ...prev, dateRange: range }));
-    };
+    }, []);
 
-    const setMonthFilter = (month: string) => {
-        setFilters((prev) => ({ ...prev, monthFilter: month }));
-    };
+    const setMonthFilter = useCallback((month: string) => {
+        setFilters((prev) => {
+            if (prev.monthFilter === month) return prev;
+            return { ...prev, monthFilter: month };
+        });
+    }, []);
 
-    const clearFilters = () => {
+    const clearFilters = useCallback(() => {
         setFilters({
             searchQuery: '',
             categoryFilter: 'all',
@@ -121,7 +124,7 @@ export function useTransactionFilters(transactions: Transaction[]) {
             dateRange: { from: null, to: null },
             monthFilter: 'All Months',
         });
-    };
+    }, []);
 
     return {
         filteredTransactions,

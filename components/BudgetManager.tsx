@@ -126,8 +126,8 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight">Monthly Budgets</h2>
-                    <p className="text-muted-foreground">Plan and track your spending for {currentMonth}</p>
+                    <h2 className="text-2xl font-bold tracking-tight">Spending Baselines</h2>
+                    <p className="text-muted-foreground">Understand and notice your spending patterns for {currentMonth}</p>
                 </div>
                 <Dialog open={isDialogOpen} onOpenChange={(open) => {
                     setIsDialogOpen(open);
@@ -138,12 +138,12 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                 }}>
                     <DialogTrigger asChild>
                         <Button>
-                            <Plus className="mr-2 h-4 w-4" /> Set Budget
+                            <Plus className="mr-2 h-4 w-4" /> Add Baseline
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>{editingBudget ? 'Edit Budget' : 'Set Category Budget'}</DialogTitle>
+                            <DialogTitle>{editingBudget ? 'Edit Baseline' : 'Set Category Baseline'}</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
@@ -164,7 +164,7 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Monthly Limit (₹)</Label>
+                                <Label>Expected Monthly Range (₹)</Label>
                                 <Input
                                     type="number"
                                     value={newBudget.amount || ''}
@@ -172,7 +172,7 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                                 />
                             </div>
                             <Button onClick={handleAddBudget} className="w-full">
-                                {editingBudget ? 'Update Budget' : 'Save Budget'}
+                                {editingBudget ? 'Update Baseline' : 'Save Baseline'}
                             </Button>
                         </div>
                     </DialogContent>
@@ -182,9 +182,9 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                 <Dialog open={deleteConfirmation.isOpen} onOpenChange={(open) => setDeleteConfirmation({ ...deleteConfirmation, isOpen: open })}>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Delete Budget</DialogTitle>
+                            <DialogTitle>Delete Baseline</DialogTitle>
                             <CardDescription>
-                                Are you sure you want to delete the budget for {deleteConfirmation.category}? This action cannot be undone.
+                                Are you sure you want to delete the baseline for {deleteConfirmation.category}? This action cannot be undone.
                             </CardDescription>
                         </DialogHeader>
                         <div className="flex justify-end gap-3 mt-4">
@@ -205,7 +205,7 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                     <CardHeader className="px-4 sm:px-6 pb-2 sm:pb-6">
                         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                             <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 flex-shrink-0" />
-                            <span>Total Budget Progress</span>
+                            <span>Overall Pattern Progress</span>
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="px-4 sm:px-6">
@@ -218,7 +218,7 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                         </div>
                         <Progress value={totalBudget > 0 ? Math.min((totalSpent / totalBudget) * 100, 100) : 0} className="h-2" />
                         <div className="mt-2 text-xs text-muted-foreground text-right">
-                            {totalBudget > 0 && `${Math.round((totalSpent / totalBudget) * 100)}% of total budget used`}
+                            {totalBudget > 0 && `${Math.round((totalSpent / totalBudget) * 100)}% of total baseline used`}
                         </div>
                     </CardContent>
                 </Card>
@@ -266,13 +266,13 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                             <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
                                 <TrendingUp className="h-6 w-6 text-muted-foreground" />
                             </div>
-                            <p className="text-sm font-medium text-muted-foreground mb-1">No monthly budgets set</p>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">No spending baselines set</p>
                             <p className="text-xs text-muted-foreground mb-4">
-                                Set a budget for categories to track your spending
+                                Set a baseline for categories to notice your spending patterns
                             </p>
                             <Button size="sm" onClick={() => setIsDialogOpen(true)}>
                                 <Plus className="h-4 w-4 mr-1" />
-                                Set First Budget
+                                Set First Baseline
                             </Button>
                         </div>
                     ) : (
