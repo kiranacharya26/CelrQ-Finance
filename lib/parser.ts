@@ -34,7 +34,8 @@ export async function parseExcel(buffer: Buffer): Promise<any[]> {
     }
 
     // Parse again starting from the detected header row with cellDates enabled
-    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: "", raw: false, dateNF: 'yyyy-mm-dd' });
+    // Use raw: true to get actual numbers (preserving decimals) instead of formatted strings
+    const rawData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: "", raw: true });
 
     // Filter out invalid rows by checking if the date column contains a valid date
     const filtered = rawData.filter((row: any) => {

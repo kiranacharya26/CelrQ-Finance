@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { CardContent } from '@/components/ui/card';
 import { ChartTooltip } from '@/components/charts/ChartTooltip';
 import { formatCurrencyShort } from '@/lib/chartUtils';
+import { getCurrentFinancialYear } from '@/lib/financialYear';
 
 interface MonthlyExpensesProps {
     monthlyData: Record<string, number>;
@@ -11,7 +12,12 @@ interface MonthlyExpensesProps {
 export function MonthlyExpenses({ monthlyData }: MonthlyExpensesProps) {
     const data = Object.entries(monthlyData)
         .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => new Date(a.name).getTime() - new Date(b.name).getTime());
+        .sort((a, b) => new Date(a.name).getTime() - new Date(b.name).getTime())
+        .filter(item => {
+            const date = new Date(item.name);
+            const { startDate, endDate } = getCurrentFinancialYear();
+            return date >= startDate && date <= endDate;
+        });
 
     return (
         <div className="h-[300px] w-full">

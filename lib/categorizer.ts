@@ -200,7 +200,7 @@ export async function categorizeTransactions(
     }));
 
     // 5. Call OpenAI in Parallel
-    const BATCH_SIZE = 100; // Increased batch size to reduce prompt overhead
+    const BATCH_SIZE = 50; // Reduced batch size for faster processing and better timeout handling
     const batches = [];
     for (let i = 0; i < itemsToCategorize.length; i += BATCH_SIZE) {
         batches.push(itemsToCategorize.slice(i, i + BATCH_SIZE));
@@ -225,12 +225,12 @@ ${CATEGORIES.join(', ')}
    - Example: 'UPI-EXPERT CAR SERVICE-Q684054864@YBL...' -> Merchant: **EXPERT CAR SERVICE**, Category: **Automotive**.
 3. **Aggressive Categorization**: 
    - "Other" is a failure. Only use it if the string is truly random gibberish or a personal name with no context.
-   - If you see "Sagar", "Bhavan", "Cafe", "Foods", "Bakery", "Sweets", "Kitchen", "Hotel", "Restaurant" -> **Restaurants & Dining**.
+   - If you see "Sagar", "Bhavan", "Cafe", "Foods", "Bakery", "Sweets", "Kitchen", "Hotel", "Restaurant", "Veg", "Dhaba", "Tiffin", "Mess", "Kamdhenu" -> **Restaurants & Dining**.
    - If you see "Zepto", "Blinkit", "Instamart", "BigBasket", "Milk", "Daily", "Provisions", "Store", "Mart", "Supermarket" -> **Groceries**.
    - If you see "Amazon", "Flipkart", "Myntra", "Ajio", "Meesho", "Nykaa" -> **Online Shopping**.
    - If you see "Airtel", "Jio", "Vi", "Recharge", "Postpaid", "Bill Payment" -> **Telecom** or **Utilities**.
    - If you see "Uber", "Ola", "Rapido", "Namma Yatri", "Metro", "Travels" -> **Ride Services** or **Travel & Transport**.
-   - If you see "Zerodha", "Groww", "Mutual Fund", "SIP", "Invest" -> **Investments**.
+   - If you see "Zerodha", "Groww", "Upstox", "Angel One", "Securities", "Broking", "Capital", "Ventures", "Mutual Fund", "SIP", "Invest" -> **Investments**.
 4. **Ignore Payment Apps**: "CRED", "PAYTM", "PHONEPE", "GPAY" are just gateways. Look for the *actual* merchant name in the string.
 
 **OUTPUT FORMAT**:

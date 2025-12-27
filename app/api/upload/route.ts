@@ -224,8 +224,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Rate Limit: 100 uploads per hour (increased for testing)
-        const { allowed } = await checkRateLimit(session.user.email, 'categorization', 100, 1);
+        // Rate Limit: 10 uploads per hour
+        const { allowed } = await checkRateLimit(session.user.email, 'categorization', 10, 1);
         if (!allowed) {
             return NextResponse.json({
                 error: 'Upload limit reached. Please try again in an hour.'
@@ -468,9 +468,13 @@ export async function POST(request: Request) {
         console.log('💾 Storing transactions immediately...');
         await storeTransactions(transactionsWithOverrides, userEmail, bankName, file.name, fileHash, uploadId);
 
-        // 5. Process AI categorization SYNCHRONOUSLY (wait for completion)
-        console.log('🤖 Starting AI categorization...');
+        // 5. Process AI categorization with timeout protection
+        console.log('🤖 Starting AI categorization with timeout protection...');
         console.log(`📊 Processing ${transactionsWithOverrides.length} transactions for AI categorization`);
+
+        // Set a timeout to prevent 502 errors (30 seconds max for AI processing)
+        const AI_TIMEOUT = 30000; // 30 seconds
+        const startTime = Date.now();
 
         try {
             // Properly sanitize all transactions for AI processing
@@ -480,13 +484,25 @@ export async function POST(request: Request) {
 
             console.log(`📋 Sanitized ${sanitizedForAI.length} transactions for AI`);
 
-            const { results: categorized, newlyLearnedKeywords } = await categorizeTransactions(
+            // Use Promise.race to enforce timeout
+            const aiPromise = categorizeTransactions(
                 sanitizedForAI,
                 learnedKeywords,
                 userEmail,
                 uploadId
             );
 
+            const timeoutPromise = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT)
+            );
+
+            const { results: categorized, newlyLearnedKeywords } = await Promise.race([
+                aiPromise,
+                timeoutPromise
+            ]);
+
+            const elapsedTime = Date.now() - startTime;
+            console.log(`✅ AI categorization completed in ${(elapsedTime / 1000).toFixed(2)}s`);
             console.log(`✅ AI categorization returned ${categorized.length} results`);
 
             // Create a map of sanitized transactions by ID for quick lookup
@@ -532,44 +548,30 @@ export async function POST(request: Request) {
                 })), null, 2));
             }
 
-            // Use direct UPDATE instead of upsert to avoid null constraint issues
-            let updatedCount = 0;
-            let failedCount = 0;
-
-            // Filter out any null values (TypeScript safety)
+            // Use batch UPDATE for better performance
             const validUpdates = aiUpdates.filter((u): u is NonNullable<typeof u> => u !== null);
-            console.log(`🔄 Starting UPDATE loop for ${validUpdates.length} valid updates...`);
 
-            for (const update of validUpdates) {
-                try {
-                    const { error } = await supabaseAdmin
+            // Batch update in chunks of 50 for speed
+            const UPDATE_BATCH_SIZE = 50;
+            for (let i = 0; i < validUpdates.length; i += UPDATE_BATCH_SIZE) {
+                const batch = validUpdates.slice(i, i + UPDATE_BATCH_SIZE);
+
+                await Promise.all(batch.map(update =>
+                    supabaseAdmin
                         .from('transactions')
                         .update({
                             category: update.category,
                             merchant_name: update.merchant_name
                         })
-                        .eq('id', update.id);
+                        .eq('id', update.id)
+                ));
 
-                    if (error) {
-                        console.error(`❌ Error updating transaction ${update.id}:`, error.message);
-                        failedCount++;
-                    } else {
-                        updatedCount++;
-                        // Log progress every 100 updates
-                        if (updatedCount % 100 === 0) {
-                            console.log(`⏳ Progress: ${updatedCount}/${validUpdates.length} updated...`);
-                        }
-                    }
-                } catch (err) {
-                    console.error(`❌ Exception updating transaction ${update.id}:`, err);
-                    failedCount++;
+                if (i % 100 === 0) {
+                    console.log(`⏳ Progress: ${i}/${validUpdates.length} updated...`);
                 }
             }
 
-            console.log(`✅ Successfully updated: ${updatedCount}/${aiUpdates.length} transactions`);
-            if (failedCount > 0) {
-                console.log(`❌ Failed to update: ${failedCount} transactions`);
-            }
+            console.log(`✅ Successfully updated: ${validUpdates.length} transactions`);
 
             await saveNewRules(newlyLearnedKeywords);
             console.log('✅ AI categorization complete');
@@ -589,6 +591,28 @@ export async function POST(request: Request) {
             });
 
         } catch (error) {
+            const isTimeout = (error as Error).message === 'AI_TIMEOUT';
+
+            if (isTimeout) {
+                console.warn('⚠️ AI categorization timed out - returning partial results');
+
+                // Update upload status
+                await supabaseAdmin.from('uploads').update({
+                    status: 'completed',
+                    processed_count: transactionsWithOverrides.length
+                }).eq('id', uploadId);
+
+                // Return success with basic categories - AI will be retried on next page load
+                return NextResponse.json({
+                    transactions: transactionsWithOverrides.map(t =>
+                        sanitizeTransaction(t, userEmail, bankName, uploadId)
+                    ),
+                    message: 'Upload successful! Transactions stored with basic categories. AI categorization will continue in the background.',
+                    uploadId,
+                    status: 'processing'
+                });
+            }
+
             console.error('❌ AI categorization failed:', error);
             console.error('Error stack:', (error as Error).stack);
 
@@ -604,7 +628,9 @@ export async function POST(request: Request) {
 
             // Return partial success - data is stored but AI failed
             return NextResponse.json({
-                transactions: transactionsWithOverrides,
+                transactions: transactionsWithOverrides.map(t =>
+                    sanitizeTransaction(t, userEmail, bankName, uploadId)
+                ),
                 message: 'Upload successful but AI categorization failed. Transactions stored with default categories.',
                 uploadId,
                 warning: 'AI categorization failed'

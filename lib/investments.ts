@@ -35,15 +35,31 @@ export function analyzeInvestments(transactions: Transaction[]): Record<string, 
         'Recurring Deposits': { category: 'Recurring Deposits', totalInvested: 0, transactionCount: 0, recurringAmount: 0, lastInvestedDate: null, detectedMerchants: [] },
     };
 
+    // Regex patterns for safer matching of short acronyms
+    const SAFE_PATTERNS = {
+        'Mutual Funds': [/\bMF\b/i, /\bAMC\b/i, /\bSIP\b/i, /NIPPON/i, /HDFC MUTUAL/i, /ICICI PRU/i, /SBI MUTUAL/i, /AXIS MUTUAL/i, /MIRAIE/i, /PARAG PARIKH/i, /QUANT/i, /GROWW/i, /CAMS/i, /KARVY/i],
+        'Stocks': [/ZERODHA/i, /KITE/i, /UPSTOX/i, /ANGELONE/i, /5PAISA/i, /GROWW STOCKS/i, /INDMONEY/i, /VESTED/i, /BROKING/i, /SECURITIES/i, /CAPITAL/i],
+        'Fixed Deposits': [/\bFD\b/i, /FIXED DEPOSIT/i, /TERM DEPOSIT/i, /TFR TO FD/i],
+        'Recurring Deposits': [/\bRD\b/i, /RECURRING DEPOSIT/i, /RD INSTALLMENT/i]
+    };
+
     transactions.forEach(t => {
+        // CRITICAL: Only analyze transactions that are already categorized as Investments
+        // or if they are uncategorized/Other but look very strongly like investments.
+        // This prevents "Zomato" (Restaurants) from being checked for "RD" (Recurring Deposit).
+        const isInvestmentCategory = t.category === 'Investments' || t.category === 'Mutual Funds';
+        if (!isInvestmentCategory && t.category !== 'Other' && t.category !== 'Uncategorized') {
+            return;
+        }
+
         const desc = (t.description || t.narration || '').toUpperCase();
         const amount = Math.abs(Number(t.amount) || 0);
 
         // Only consider outflows (expenses/transfers out)
         if (t.type === 'income') return;
 
-        for (const [category, patterns] of Object.entries(INVESTMENT_PATTERNS)) {
-            if (patterns.some(p => desc.includes(p))) {
+        for (const [category, patterns] of Object.entries(SAFE_PATTERNS)) {
+            if (patterns.some(p => p.test(desc))) {
                 const summary = summaries[category];
                 summary.totalInvested += amount;
                 summary.transactionCount += 1;

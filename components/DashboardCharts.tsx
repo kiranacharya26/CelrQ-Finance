@@ -9,6 +9,7 @@ import { SpendingByCategory } from '@/components/charts/SpendingByCategory';
 import { TopCategoriesPie } from '@/components/charts/TopCategoriesPie';
 import { MonthlyExpenses } from '@/components/charts/MonthlyExpenses';
 import { MonthRangeFilter } from '@/components/charts/MonthRangeFilter';
+import { getCurrentFinancialYear } from '@/lib/financialYear';
 
 interface DashboardChartsProps {
     transactions: any[];
@@ -56,6 +57,9 @@ export function DashboardCharts({
                         <CardTitle className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
                             <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500 flex-shrink-0" />
                             <span className="truncate">Monthly Expenses</span>
+                            <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                                {getCurrentFinancialYear().label}
+                            </span>
                         </CardTitle>
                         <MonthRangeFilter
                             monthRange={monthRange}
