@@ -6,10 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, AlertCircle, CheckCircle2, Edit, Trash2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
-interface Budget {
-    category: string;
-    amount: number;
-}
+import { Budget } from '@/lib/budgets';
 
 interface BudgetStoriesProps {
     budgets: Budget[];
@@ -112,7 +109,7 @@ export function BudgetStories({ budgets, categorySpending, onAddBudget, onEditBu
                 <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            {selectedBudget?.category} Budget
+                            {selectedBudget?.category} Baseline
                         </DialogTitle>
                     </DialogHeader>
                     {selectedBudget && (
@@ -121,13 +118,13 @@ export function BudgetStories({ budgets, categorySpending, onAddBudget, onEditBu
                                 <div className="text-4xl font-bold mb-1">
                                     {Math.round((categorySpending[selectedBudget.category] || 0) / selectedBudget.amount * 100)}%
                                 </div>
-                                <p className="text-muted-foreground text-sm">used of monthly limit</p>
+                                <p className="text-muted-foreground text-sm">used of monthly pattern</p>
                             </div>
 
                             <div className="space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span>Spent: <strong>₹{(categorySpending[selectedBudget.category] || 0).toLocaleString()}</strong></span>
-                                    <span>Limit: <strong>₹{selectedBudget.amount.toLocaleString()}</strong></span>
+                                    <span>Baseline: <strong>₹{selectedBudget.amount.toLocaleString()}</strong></span>
                                 </div>
                                 <Progress
                                     value={Math.min(((categorySpending[selectedBudget.category] || 0) / selectedBudget.amount) * 100, 100)}
@@ -147,14 +144,14 @@ export function BudgetStories({ budgets, categorySpending, onAddBudget, onEditBu
                                     <span className="text-muted-foreground">Status</span>
                                     <span className={`font-medium ${(categorySpending[selectedBudget.category] || 0) > selectedBudget.amount ? "text-red-600" : "text-green-600"
                                         }`}>
-                                        {(categorySpending[selectedBudget.category] || 0) > selectedBudget.amount ? "Over Budget" : "On Track"}
+                                        {(categorySpending[selectedBudget.category] || 0) > selectedBudget.amount ? "Pattern Drift" : "On Track"}
                                     </span>
                                 </div>
                             </div>
 
                             {/* Actions */}
                             <div className="space-y-3 pt-2 border-t">
-                                <h4 className="text-sm font-medium text-muted-foreground">Manage Budget</h4>
+                                <h4 className="text-sm font-medium text-muted-foreground">Manage Baseline</h4>
                                 <div className="flex gap-2">
                                     <Button
                                         variant="outline"

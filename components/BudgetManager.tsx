@@ -10,14 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Transaction } from '@/types';
 import { Plus, AlertCircle, TrendingUp, CheckCircle2, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { UserStorage } from '@/lib/storage';
+import { useBudgets, saveBudget, deleteBudget, Budget } from '@/lib/budgets';
 import { useSession } from 'next-auth/react';
 import { BudgetStories } from './BudgetStories';
-
-interface Budget {
-    category: string;
-    amount: number;
-}
 
 interface BudgetManagerProps {
     transactions: Transaction[];
@@ -26,9 +21,9 @@ interface BudgetManagerProps {
 
 export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps) {
     const { data: session } = useSession();
-    const [budgets, setBudgets] = useState<Budget[]>([]);
+    const { budgets, loading, refreshBudgets } = useBudgets();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [newBudget, setNewBudget] = useState<Budget>({ category: '', amount: 0 });
+    const [newBudget, setNewBudget] = useState<Omit<Budget, 'id'>>({ category: '', amount: 0 });
     const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -42,33 +37,10 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
         }
     };
 
-    // Load budgets from storage
-    useEffect(() => {
-        if (session?.user?.email) {
-            const savedBudgets = UserStorage.getData(session.user.email, 'budgets', []);
-            setBudgets(savedBudgets);
-        }
-    }, [session]);
-
-    // Save budgets
-    const saveBudgets = (updatedBudgets: Budget[]) => {
-        if (session?.user?.email) {
-            UserStorage.saveData(session.user.email, 'budgets', updatedBudgets);
-            setBudgets(updatedBudgets);
-        }
-    };
-
-    const handleAddBudget = () => {
-        if (newBudget.category && newBudget.amount > 0) {
-            const existingIndex = budgets.findIndex(b => b.category === newBudget.category);
-            let updated;
-            if (existingIndex >= 0) {
-                updated = [...budgets];
-                updated[existingIndex] = newBudget;
-            } else {
-                updated = [...budgets, newBudget];
-            }
-            saveBudgets(updated);
+    const handleAddBudget = async () => {
+        if (session?.user?.email && newBudget.category && newBudget.amount > 0) {
+            await saveBudget(session.user.email, newBudget);
+            refreshBudgets();
             setIsDialogOpen(false);
             setNewBudget({ category: '', amount: 0 });
             setEditingBudget(null);
@@ -80,10 +52,12 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
         category: null
     });
 
-    const handleDeleteBudget = (category: string) => {
-        const updated = budgets.filter(b => b.category !== category);
-        saveBudgets(updated);
-        setDeleteConfirmation({ isOpen: false, category: null });
+    const handleDeleteBudget = async (category: string) => {
+        if (session?.user?.email) {
+            await deleteBudget(session.user.email, category);
+            refreshBudgets();
+            setDeleteConfirmation({ isOpen: false, category: null });
+        }
     };
 
     const confirmDelete = (category: string) => {
