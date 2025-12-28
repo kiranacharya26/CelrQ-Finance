@@ -253,7 +253,7 @@ ${JSON.stringify(batch)}`;
 
         try {
             const response = await openai!.chat.completions.create({
-                model: "gpt-4o",
+                model: "gpt-4o-mini",
                 messages: [
                     { role: "system", content: "You are a forensic financial analyst. You analyze raw bank narrations to identify merchants and categories with extreme precision." },
                     { role: "user", content: prompt }

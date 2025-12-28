@@ -65,7 +65,13 @@ function DashboardContent() {
         router.replace(`${pathname}?${params.toString()}`);
     };
 
-    const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
+
+    const dateRange = useMemo(() => ({
+        from: fromParam ? new Date(fromParam + '-01') : null,
+        to: toParam ? new Date(toParam + '-01') : null
+    }), [fromParam, toParam]);
 
     const { transactions, availableBanks, loading, deleteBank } = useTransactions({
         userEmail,
@@ -93,48 +99,6 @@ function DashboardContent() {
     const categoryKey = keys.find(k => k.toLowerCase() === 'category') || keys.find(k => k.toLowerCase().includes('category'));
     const dateKey = keys.find(k => k.toLowerCase().includes('date') || k.toLowerCase().includes('time'));
 
-    // Extract unique months
-    const months = useMemo(() => {
-        if (!dateKey) {
-            return [];
-        }
-
-        const uniqueMonths = new Map<string, Date>(); // Map month string to its Date object for sorting
-        let parsedCount = 0;
-        let failedCount = 0;
-        const failedSamples: any[] = [];
-        const parsedSamples: { raw: any; parsed: Date; month: string }[] = [];
-
-        transactions.forEach((t, index) => {
-            const rawDate = t[dateKey];
-            const date = parseDate(rawDate);
-
-            if (date && !isNaN(date.getTime())) {
-                const monthStr = date.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-                if (!uniqueMonths.has(monthStr)) {
-                    uniqueMonths.set(monthStr, date);
-                }
-                parsedCount++;
-
-                // Collect samples for debugging
-                if (parsedSamples.length < 10) {
-                    parsedSamples.push({ raw: rawDate, parsed: date, month: monthStr });
-                }
-            } else {
-                failedCount++;
-                // Collect failed samples for debugging
-                if (failedSamples.length < 10) {
-                    failedSamples.push(rawDate);
-                }
-            }
-        });
-
-        // Sort chronologically using the actual Date objects (Descending: Newest First)
-        return Array.from(uniqueMonths.entries())
-            .sort(([, dateA], [, dateB]) => dateB.getTime() - dateA.getTime())
-            .map(([monthStr]) => monthStr);
-    }, [transactions, dateKey]);
-
     // Filter transactions based on selected month and date range
     const filteredTransactions = useMemo(() => {
         let currentFiltered = transactions;
@@ -144,8 +108,16 @@ function DashboardContent() {
                 currentFiltered = currentFiltered.filter(t => {
                     const transDate = parseDate(t[dateKey]);
                     if (!transDate) return false;
-                    if (dateRange.from && transDate < dateRange.from) return false;
-                    if (dateRange.to && transDate > dateRange.to) return false;
+
+                    // Adjust to start of month for comparison if using YYYY-MM
+                    if (dateRange.from) {
+                        const fromDate = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), 1);
+                        if (transDate < fromDate) return false;
+                    }
+                    if (dateRange.to) {
+                        const toDate = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth() + 1, 0, 23, 59, 59);
+                        if (transDate > toDate) return false;
+                    }
                     return true;
                 });
             }
@@ -229,7 +201,7 @@ function DashboardContent() {
     }
 
     return (
-        <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-7xl mx-auto w-full">
+        <div className="flex-1 space-y-6 px-4 md:px-8 py-6 max-w-7xl mx-auto w-full">
             <ConfirmDialog
                 open={confirmDeleteOpen}
                 onOpenChange={setConfirmDeleteOpen}
@@ -273,19 +245,7 @@ function DashboardContent() {
 
             {/* Header Section */}
             <div className="space-y-4">
-                <DashboardHeader
-                    selectedBank={selectedBank}
-                    onBankChange={setSelectedBank}
-                    availableBanks={availableBanks}
-                    selectedMonth={selectedMonth}
-                    onMonthChange={setSelectedMonth}
-                    months={months}
-                    dateRange={dateRange}
-                    onDateRangeChange={setDateRange}
-                    onDeleteBankData={() => setConfirmDeleteOpen(true)}
-                    onExportCSV={() => exportToCSV(filteredTransactions)}
-                    onExportPDF={() => exportToPDF(filteredTransactions)}
-                />
+                <DashboardHeader />
             </div>
 
             {/* Viewing Context */}

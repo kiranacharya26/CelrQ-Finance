@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
 import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input";
 import {
@@ -12,53 +11,71 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Filter, X } from 'lucide-react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 
 interface TransactionFiltersProps {
-    searchQuery: string;
-    onSearchChange: (value: string) => void;
-    categoryFilter: string;
-    onCategoryChange: (value: string) => void;
-    tagFilter: string;
-    onTagChange: (value: string) => void;
-    sortBy: string;
-    onSortChange: (value: string) => void;
+    filters: any; // Using any temporarily to match usage, ideally should be typed
+    availableBanks: string[];
     uniqueCategories: string[];
     availableTags: string[];
-    hasActiveFilters: boolean;
-    onClearFilters: () => void;
+    onFilterChange: (newFilters: any) => void;
 }
 
 export function TransactionFilters({
-    searchQuery,
-    onSearchChange,
-    categoryFilter,
-    onCategoryChange,
-    tagFilter,
-    onTagChange,
-    sortBy,
-    onSortChange,
+    filters,
     uniqueCategories,
     availableTags,
-    hasActiveFilters,
-    onClearFilters
 }: TransactionFiltersProps) {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
+
+    const searchQuery = searchParams.get('q') || '';
+    const categoryFilter = searchParams.get('category') || 'all';
+    const tagFilter = searchParams.get('tag') || 'all';
+    const sortBy = searchParams.get('sort') || 'date-desc';
+
     const [localSearch, setLocalSearch] = useState(searchQuery);
+
+    const updateFilters = (updates: Record<string, string>) => {
+        const params = new URLSearchParams(searchParams);
+        Object.entries(updates).forEach(([key, value]) => {
+            if (value && value !== 'all') {
+                params.set(key, value);
+            } else {
+                params.delete(key);
+            }
+        });
+        router.replace(`${pathname}?${params.toString()}`);
+    };
 
     // Debounce search updates
     useEffect(() => {
         const timer = setTimeout(() => {
             if (localSearch !== searchQuery) {
-                onSearchChange(localSearch);
+                updateFilters({ q: localSearch });
             }
         }, 300);
 
         return () => clearTimeout(timer);
-    }, [localSearch, onSearchChange, searchQuery]);
+    }, [localSearch, searchQuery]);
 
-    // Sync local state when prop changes (e.g. clear filters)
+    // Sync local state when URL changes
     useEffect(() => {
         setLocalSearch(searchQuery);
     }, [searchQuery]);
+
+    const onCategoryChange = (val: string) => updateFilters({ category: val });
+    const onTagChange = (val: string) => updateFilters({ tag: val });
+    const onSortChange = (val: string) => updateFilters({ sort: val });
+    const onClearFilters = () => {
+        const params = new URLSearchParams(searchParams);
+        ['q', 'category', 'tag', 'sort'].forEach(k => params.delete(k));
+        setLocalSearch('');
+        router.replace(`${pathname}?${params.toString()}`);
+    };
+
+    const hasActiveFilters = searchQuery || categoryFilter !== 'all' || tagFilter !== 'all' || sortBy !== 'date-desc';
 
     return (
         <div className="space-y-4" role="search" aria-label="Transaction filters">
@@ -81,7 +98,6 @@ export function TransactionFilters({
                         className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
                         onClick={() => {
                             setLocalSearch('');
-                            onSearchChange('');
                         }}
                         aria-label="Clear search"
                     >

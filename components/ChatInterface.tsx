@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,16 +12,18 @@ import { Message } from '@/lib/assistant';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useGoals } from '@/lib/goals';
 import { cn } from '@/lib/utils';
+import { DynamicIcon } from '@/components/icons';
 
 export function ChatInterface() {
     const { data: session } = useSession();
+    const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 'welcome',
             role: 'assistant',
-            content: "Hi! I'm your Smart Money Assistant. Ask me anything about your finances!",
+            content: "Hi! I'm Q, your financial analyst. I can help you understand your spending, track goals, and find specific transactions.",
             timestamp: new Date(),
         },
     ]);
@@ -161,13 +164,13 @@ export function ChatInterface() {
     };
 
     const suggestions = [
-        { label: 'Spending on Food', icon: '🍔', query: 'How much did I spend on food?' },
-        { label: 'Recent Transactions', icon: '💳', query: 'Show me recent transactions' },
-        { label: 'My Goals', icon: '🎯', query: 'Check my goals' },
-        { label: 'Financial Advice', icon: '💡', query: 'Give me some advice' },
+        { label: 'Spending on Food', icon: 'Utensils', query: 'How much did I spend on food?' },
+        { label: 'Recent Transactions', icon: 'CreditCard', query: 'Show me recent transactions' },
+        { label: 'My Goals', icon: 'Target', query: 'Check my goals' },
+        { label: 'Financial Advice', icon: 'Lightbulb', query: 'Give me some advice' },
     ];
 
-    if (!session || !isPremium) return null;
+    if (!session || !isPremium || pathname === '/') return null;
 
     return (
         <>
@@ -201,8 +204,8 @@ export function ChatInterface() {
                                 <Sparkles className="h-5 w-5" />
                             </div>
                             <div>
-                                <h3 className="font-semibold">Smart Assistant</h3>
-                                <p className="text-xs text-primary-foreground/80">Ask me anything</p>
+                                <h3 className="font-semibold">Q</h3>
+                                <p className="text-xs text-primary-foreground/80">Financial Analyst</p>
                             </div>
                         </div>
                         <Button
@@ -272,7 +275,7 @@ export function ChatInterface() {
                                         onClick={() => handleSendMessage(s.query)}
                                         className="flex items-center gap-1.5 whitespace-nowrap bg-background border px-3 py-1.5 rounded-full text-xs hover:bg-primary/5 hover:border-primary/30 transition-colors"
                                     >
-                                        <span>{s.icon}</span>
+                                        <DynamicIcon name={s.icon} color="currentColor" className="h-3.5 w-3.5" />
                                         {s.label}
                                     </button>
                                 ))}

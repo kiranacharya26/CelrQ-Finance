@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Transaction } from '@/types';
 import { analyzeInvestments, InvestmentSummary } from '@/lib/investments';
 import { Card } from '@/components/ui/card';
@@ -62,21 +62,101 @@ export function InvestmentPortfolio({ transactions }: InvestmentPortfolioProps) 
     ];
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <TrendingUp className="w-6 h-6 text-green-500" />
+                    <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-green-500" />
                         Investment Portfolio
                     </h2>
-                    <p className="text-sm text-muted-foreground">AI-detected and manual wealth tracking</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">AI-detected and manual wealth tracking</p>
                 </div>
-                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20">
-                    Wealth Mode Active
+                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20 text-xs">
+                    Wealth Mode
                 </Badge>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Mobile View: Compact Grid */}
+            <div className="md:hidden grid grid-cols-2 gap-2">
+                {categories.map((cat) => {
+                    const summary = summaries[cat.id];
+                    const manual = manualAdjustments[cat.id] || 0;
+                    const total = (summary?.totalInvested || 0) + manual;
+                    const isEditing = editingCategory === cat.id;
+
+                    return (
+                        <div key={cat.id} className="p-3 rounded-lg border bg-card shadow-sm relative overflow-hidden">
+                            {/* Background Glow */}
+                            <div className={`absolute -right-2 -top-2 w-16 h-16 bg-${cat.color}-500/5 rounded-full blur-xl`} />
+
+                            <div className="relative z-10 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1 rounded bg-muted border border-border flex items-center justify-center">
+                                            <div className="w-3.5 h-3.5 text-current">
+                                                {cat.icon}
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{cat.id}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setEditingCategory(cat.id);
+                                            setTempValue(manual.toString());
+                                        }}
+                                        className="text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                        <Edit2 className="w-3 h-3" />
+                                    </button>
+                                </div>
+
+                                {isEditing ? (
+                                    <div className="flex items-center gap-1">
+                                        <Input
+                                            type="number"
+                                            value={tempValue}
+                                            onChange={(e) => setTempValue(e.target.value)}
+                                            className="h-6 bg-background border-input text-xs"
+                                            autoFocus
+                                        />
+                                        <button onClick={() => handleSaveManual(cat.id)} className="p-0.5 bg-green-500/20 text-green-400 rounded">
+                                            <Check className="w-3 h-3" />
+                                        </button>
+                                        <button onClick={() => setEditingCategory(null)} className="p-0.5 bg-red-500/20 text-red-400 rounded">
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <h3 className="text-lg font-bold">
+                                        ₹{total.toLocaleString('en-IN')}
+                                    </h3>
+                                )}
+
+                                <div className="space-y-0.5">
+                                    <div className="flex justify-between text-[8px] uppercase font-bold tracking-tight">
+                                        <span className="text-muted-foreground">AI</span>
+                                        <span className="text-blue-500">₹{(summary?.totalInvested || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                    </div>
+                                    <div className="flex justify-between text-[8px] uppercase font-bold tracking-tight">
+                                        <span className="text-muted-foreground">Manual</span>
+                                        <span className="text-orange-500">₹{manual.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                    </div>
+                                </div>
+
+                                {summary?.recurringAmount > 0 && (
+                                    <div className="pt-1.5 border-t border-border flex items-center gap-1 text-[8px] text-muted-foreground">
+                                        <Calendar className="w-2 h-2" />
+                                        SIP: ₹{Math.round(summary.recurringAmount).toLocaleString('en-IN')}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Desktop View: Full Cards */}
+            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {categories.map((cat) => {
                     const summary = summaries[cat.id];
                     const manual = manualAdjustments[cat.id] || 0;

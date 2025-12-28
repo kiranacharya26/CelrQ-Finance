@@ -25,7 +25,7 @@ export function TopCategoriesPie({ categoryData }: TopCategoriesPieProps) {
                     <span className="truncate">Top Categories</span>
                 </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-6 pt-0 w-full">
+            <CardContent className="px-2 sm:px-4 pb-6 pt-0 w-full">
                 <div className="h-[300px] w-full relative flex items-center justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -48,10 +48,10 @@ export function TopCategoriesPie({ categoryData }: TopCategoriesPieProps) {
                                     />
                                 ))}
                             </Pie>
-                            <Tooltip content={<ChartTooltip />} />
+                            <Tooltip content={<ChartTooltip />} wrapperStyle={{ zIndex: 1000 }} />
                         </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
                         <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total</span>
                         <span className="text-xl font-bold text-gray-900">{formatCurrency(total)}</span>
                     </div>

@@ -23,13 +23,13 @@ export function SpendingByCategory({ categoryData }: SpendingByCategoryProps) {
                     <span className="truncate">Spending by Category</span>
                 </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4 pt-0 w-full">
+            <CardContent className="px-2 sm:px-4 pb-6 pt-0 w-full">
                 <div className="h-[350px] w-full mt-2">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                             data={data}
                             layout="vertical"
-                            margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                            margin={{ top: 5, right: 15, left: 5, bottom: 5 }}
                         >
                             <defs>
                                 <linearGradient id="categoryGradient" x1="0" y1="0" x2="1" y2="0">
@@ -46,11 +46,11 @@ export function SpendingByCategory({ categoryData }: SpendingByCategoryProps) {
                                 dataKey="name"
                                 type="category"
                                 stroke="#9ca3af"
-                                fontSize={11}
+                                fontSize={10}
                                 tickLine={false}
                                 axisLine={false}
                                 tick={{ fill: '#4b5563', fontWeight: 500 }}
-                                width={100}
+                                width={90}
                             />
                             <Tooltip
                                 content={<ChartTooltip />}

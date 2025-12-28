@@ -36,13 +36,7 @@ export function SpendingForecast({ transactions }: SpendingForecastProps) {
         }
     };
 
-    const getAlertColor = (severity: ForecastAlert['severity']) => {
-        switch (severity) {
-            case 'high': return 'bg-red-500/10 border-red-500/20 text-red-500';
-            case 'medium': return 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500';
-            case 'low': return 'bg-green-500/10 border-green-500/20 text-green-500';
-        }
-    };
+
 
     const getTrendIcon = (trend: 'increasing' | 'decreasing' | 'stable') => {
         switch (trend) {
@@ -57,23 +51,44 @@ export function SpendingForecast({ transactions }: SpendingForecastProps) {
             {/* Alerts Section */}
             {forecast.alerts.length > 0 && (
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                             <AlertTriangle className="h-5 w-5 text-orange-500" />
                             Smart Alerts
                         </CardTitle>
                         <CardDescription>AI-powered insights about your spending</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="px-4 sm:px-6 space-y-3">
                         {forecast.alerts.slice(0, 5).map((alert, i) => (
                             <div
                                 key={i}
-                                className={`flex items-start gap-3 p-3 rounded-lg border ${getAlertColor(alert.severity)}`}
+                                className={`flex gap-3 p-3 rounded-xl border transition-all ${alert.severity === 'high'
+                                        ? 'bg-red-50/50 dark:bg-red-950/10 border-red-200/50 dark:border-red-900/50'
+                                        : alert.severity === 'medium'
+                                            ? 'bg-amber-50/50 dark:bg-amber-950/10 border-amber-200/50 dark:border-amber-900/50'
+                                            : 'bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-200/50 dark:border-emerald-900/50'
+                                    }`}
                             >
-                                {getAlertIcon(alert.type)}
-                                <div className="flex-1">
-                                    <p className="text-sm font-medium">{alert.message}</p>
-                                    <p className="text-xs mt-1 opacity-75">{alert.category}</p>
+                                <div className={`mt-0.5 p-1.5 rounded-full shrink-0 ${alert.severity === 'high' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                                        alert.severity === 'medium' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
+                                            'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                    }`}>
+                                    {getAlertIcon(alert.type)}
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-start gap-2">
+                                        <p className="text-sm font-semibold leading-tight">{alert.category}</p>
+                                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full uppercase tracking-wider ${alert.severity === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' :
+                                                alert.severity === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300' :
+                                                    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+                                            }`}>
+                                            {alert.severity}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                                        {alert.message}
+                                    </p>
                                 </div>
                             </div>
                         ))}
@@ -93,7 +108,7 @@ export function SpendingForecast({ transactions }: SpendingForecastProps) {
                 </CardHeader>
                 <CardContent>
                     {forecast.monthlyTrend.length > 0 ? (
-                        <div className="h-64 w-full mt-4">
+                        <div className="h-48 sm:h-64 w-full mt-4">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={forecast.monthlyTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                     <defs>

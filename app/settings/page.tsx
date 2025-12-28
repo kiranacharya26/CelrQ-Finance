@@ -20,6 +20,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
@@ -176,138 +177,108 @@ function SettingsContent() {
     }
 
     return (
-        <div className="flex-1 space-y-6 p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full">
+        <div className="flex-1 space-y-6 p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full overflow-x-hidden">
             {/* Header */}
-            <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tight">Billing & Subscription</h1>
-                <p className="text-muted-foreground">
-                    Manage your subscription, view billing history, and update payment settings
+            <div className="flex flex-col gap-1">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Settings</h1>
+                <p className="text-sm text-muted-foreground">
+                    Manage your account, subscription, and data preferences.
                 </p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {/* Current Plan - Spans full width on mobile, 2 cols on large screens */}
-                <div className="col-span-1 md:col-span-2 lg:col-span-2 rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
-                    <div className={`p-6 text-white ${isExpiringSoon
-                        ? 'bg-gradient-to-r from-orange-500 to-red-600'
-                        : 'bg-gradient-to-r from-indigo-500 to-purple-600'
-                        }`}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h2 className="text-2xl font-bold mb-2">
-                                    {isPremium ? 'ClerQ Premium' : (isTrial ? 'Free Trial Active' : 'ClerQ')}
-                                </h2>
-                                <p className={isExpiringSoon ? 'text-white font-medium' : 'text-indigo-100'}>
-                                    {isPremium
-                                        ? (isExpiringSoon
-                                            ? `⚠️ Your subscription expires in ${subscriptionDaysRemaining} days!`
-                                            : 'Full access to all features')
-                                        : (isTrial
-                                            ? `You have ${trialDays} days remaining in your trial`
-                                            : (wasPremium ? 'Renew your subscription to regain access' : 'Start your 7-day free trial')
-                                        )
-                                    }
-                                </p>
-                            </div>
-                            {isPremium && !isExpiringSoon && (
-                                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur">
-                                    <Crown className="h-6 w-6" />
-                                    <span className="font-semibold text-lg">Active</span>
-                                </div>
-                            )}
-                            {isExpiringSoon && (
-                                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur animate-pulse">
-                                    <AlertTriangle className="h-6 w-6" />
-                                    <span className="font-semibold text-lg">Expiring Soon</span>
-                                </div>
-                            )}
-                            {!isPremium && isTrial && (
-                                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur">
-                                    <span className="text-2xl">⏳</span>
-                                    <span className="font-semibold text-lg">{trialDays} Days Left</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+            <Tabs defaultValue="overview" className="space-y-6">
+                <TabsList className="grid w-full grid-cols-3 lg:w-[400px] h-12 p-1 bg-muted/50 rounded-xl">
+                    <TabsTrigger
+                        value="overview"
+                        className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+                    >
+                        Overview
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="data"
+                        className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+                    >
+                        Data & Banks
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="account"
+                        className="rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+                    >
+                        Account
+                    </TabsTrigger>
+                </TabsList>
 
-                    <div className="p-6 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-sm text-muted-foreground">Plan Price</p>
-                                <p className="text-2xl font-bold">
-                                    {paymentDetails && Number(paymentDetails.amount) > 149 ? '₹1499' : '₹149'}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    {paymentDetails && Number(paymentDetails.amount) > 149 ? 'per year' : 'per month'}
-                                </p>
+                {/* OVERVIEW TAB */}
+                <TabsContent value="overview" className="space-y-6">
+                    {/* Subscription Card */}
+                    <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
+                        <div className={`p-6 sm:p-8 text-white ${isExpiringSoon
+                            ? 'bg-gradient-to-br from-orange-500 to-red-600'
+                            : 'bg-gradient-to-br from-indigo-600 to-purple-700'
+                            }`}>
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-xl sm:text-2xl font-bold">
+                                            {isPremium ? 'ClerQ Premium' : (isTrial ? 'Free Trial' : 'Free Plan')}
+                                        </h2>
+                                        {isPremium && !isExpiringSoon && (
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/20 backdrop-blur text-white">
+                                                Active
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className={`text-sm max-w-md ${isExpiringSoon ? 'text-white font-medium' : 'text-indigo-100'}`}>
+                                        {isPremium
+                                            ? (isExpiringSoon
+                                                ? `⚠️ Expires in ${subscriptionDaysRemaining} days!`
+                                                : 'Full access active.')
+                                            : (isTrial
+                                                ? `${trialDays} days left in trial.`
+                                                : 'Upgrade for AI insights & more.')
+                                        }
+                                    </p>
+                                </div>
+
+                                {(!isPremium || isTrial || isExpiringSoon) && (
+                                    <button
+                                        onClick={() => router.push('/?upgrade=true')}
+                                        className="mt-2 sm:mt-0 w-full sm:w-auto px-4 py-2 bg-white text-indigo-600 font-semibold rounded-lg shadow-sm hover:bg-indigo-50 transition-colors text-sm"
+                                    >
+                                        {isExpiringSoon ? 'Renew' : 'Upgrade'}
+                                    </button>
+                                )}
                             </div>
-                            {isPremium && !isTrial && paymentDetails && (
-                                <>
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-muted-foreground">Subscribed On</p>
-                                        <p className="text-lg font-semibold">
-                                            {formatDate(paymentDetails.created_at)}
-                                        </p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-muted-foreground">Subscription Ends</p>
-                                        <p className="text-lg font-semibold">
-                                            {formatDate(new Date(new Date(paymentDetails.created_at).getTime() + (Number(paymentDetails.amount) > 149 ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString())}
-                                        </p>
-                                    </div>
-                                </>
-                            )}
+
+                            {/* Compact Plan Details */}
+                            <div className="mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
+                                <div>
+                                    <p className="text-[10px] text-indigo-100/80 uppercase tracking-wider font-medium">Price</p>
+                                    <p className="text-base font-bold mt-0.5">
+                                        {paymentDetails && Number(paymentDetails.amount) > 149 ? '₹1499' : '₹149'}
+                                        <span className="text-[10px] font-normal text-indigo-100/70 ml-1">
+                                            /{paymentDetails && Number(paymentDetails.amount) > 149 ? 'yr' : 'mo'}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-indigo-100/80 uppercase tracking-wider font-medium">Status</p>
+                                    <p className="text-base font-bold mt-0.5">
+                                        {isPremium ? 'Active' : 'Inactive'}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
-                        {(!isPremium || isTrial || isExpiringSoon) && (
-                            <div className="pt-4 border-t">
-                                <button
-                                    onClick={() => router.push('/?upgrade=true')}
-                                    className={`w-full sm:w-auto px-6 py-3 text-white font-semibold rounded-lg transition-all transform hover:scale-105 ${isExpiringSoon
-                                        ? "bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 shadow-lg shadow-red-500/20"
-                                        : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-                                        }`}
-                                >
-                                    {isExpiringSoon
-                                        ? `Renew Now (₹149/mo)`
-                                        : (isTrial
-                                            ? 'Continue After Trial (₹149/mo)'
-                                            : (wasPremium ? 'Renew Subscription (₹149/mo)' : 'Start Free Trial')
-                                        )
-                                    }
-                                </button>
-                            </div>
-                        )}
+                        {/* Manage Subscription Actions */}
                         {isPremium && !isTrial && (
-                            <div className="pt-4 border-t flex flex-wrap gap-4">
-                                <Dialog open={cancelModalOpen} onOpenChange={setCancelModalOpen}>
-                                    <DialogTrigger asChild>
-                                        <button
-                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                                        >
-                                            Cancel Subscription
-                                        </button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle>Cancel Subscription?</DialogTitle>
-                                            <DialogDescription>
-                                                Are you sure you want to cancel your premium subscription? You will lose access to premium features at the end of your current billing period.
-                                            </DialogDescription>
-                                        </DialogHeader>
-                                        <DialogFooter>
-                                            <Button variant="outline" onClick={() => setCancelModalOpen(false)}>
-                                                Keep Subscription
-                                            </Button>
-                                            <Button variant="destructive" onClick={handleCancelSubscription}>
-                                                Yes, Cancel
-                                            </Button>
-                                        </DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
-                                <button
+                            <div className="bg-muted/30 p-3 flex flex-wrap gap-2 items-center justify-end border-t">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs"
                                     onClick={async () => {
-                                        const toastId = toast.loading('Refreshing payment status...');
+                                        const toastId = toast.loading('Refreshing...');
                                         try {
                                             const res = await fetch(`/api/payment/status?email=${userEmail}`);
                                             const data = await res.json();
@@ -315,209 +286,168 @@ function SettingsContent() {
                                             setIsTrial(data.isTrial || false);
                                             setTrialDays(data.trialDaysRemaining || 0);
                                             setWasPremium(data.wasPremium || false);
-
-                                            if (data.hasPaid && !data.isTrial) {
-                                                toast.success('Payment status updated! You are Premium.', { id: toastId });
-                                                // Refresh page to update navbar
-                                                router.refresh();
-                                            } else {
-                                                toast.info('Payment status is up to date.', { id: toastId });
-                                            }
+                                            toast.success('Updated', { id: toastId });
+                                            router.refresh();
                                         } catch (e) {
-                                            toast.error('Failed to refresh status', { id: toastId });
+                                            toast.error('Failed', { id: toastId });
                                         }
                                     }}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                                 >
-                                    Refresh Status
-                                </button>
-                                <button
-                                    onClick={() => router.push('/')}
-                                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-                                >
-                                    Back to Dashboard
-                                </button>
+                                    Refresh
+                                </Button>
+                                <Dialog open={cancelModalOpen} onOpenChange={setCancelModalOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+                                            Cancel Plan
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Cancel Subscription?</DialogTitle>
+                                            <DialogDescription>
+                                                Are you sure you want to cancel? You will lose access to premium features at the end of your billing cycle.
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <DialogFooter>
+                                            <Button variant="outline" onClick={() => setCancelModalOpen(false)}>Keep It</Button>
+                                            <Button variant="destructive" onClick={handleCancelSubscription}>Yes, Cancel</Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
                             </div>
                         )}
                     </div>
-                </div>
 
-                {/* Account Information - Compact card */}
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm h-fit">
-                    <div className="p-6">
-                        <h2 className="text-xl font-semibold mb-4">Account</h2>
-                        <div className="space-y-4">
-                            <div className="pb-3 border-b">
-                                <label className="text-sm font-medium text-muted-foreground">Email</label>
-                                <div className="flex items-center justify-between mt-1">
-                                    <p className="text-sm truncate max-w-[180px]" title={userEmail || ''}>{userEmail}</p>
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Verified</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-muted-foreground">Status</label>
-                                <p className="text-base mt-1 font-medium">
-                                    {isPremium ? 'Premium Member' : (isTrial ? 'Trial Member' : 'Free Plan')}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Payment History - Only for Paid Users */}
-                {isPremium && !isTrial && paymentDetails && (
-                    <div className="col-span-1 md:col-span-1 lg:col-span-1 rounded-lg border bg-card text-card-foreground shadow-sm h-fit">
+                    {/* Features List (Collapsible or just list) */}
+                    <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
                         <div className="p-6">
-                            <h2 className="text-xl font-semibold mb-4">Last Payment</h2>
-                            <div className="p-4 rounded-lg bg-muted/50">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium">Amount</span>
-                                    <span className="text-lg font-bold">₹{paymentDetails.amount}</span>
+                            <h3 className="text-base font-semibold mb-3">Plan Features</h3>
+                            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {[
+                                    'Unlimited uploads',
+                                    'AI categorization',
+                                    'Spending forecasts',
+                                    'Goal tracking',
+                                    'Bank connections',
+                                    'Analytics',
+                                ].map((feature, i) => (
+                                    <li key={i} className="flex items-center gap-2 text-sm">
+                                        <div className={`flex-shrink-0 h-4 w-4 rounded-full flex items-center justify-center ${isPremium ? 'bg-green-100 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+                                            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                        <span className={isPremium ? 'text-foreground' : 'text-muted-foreground'}>{feature}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                {/* DATA TAB */}
+                <TabsContent value="data" className="space-y-6">
+                    <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
+                        <div className="p-4 border-b bg-muted/20">
+                            <h3 className="font-semibold">Bank Connections</h3>
+                        </div>
+                        <div className="p-0">
+                            <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading banks...</div>}>
+                                <BankConnections />
+                            </Suspense>
+                        </div>
+                    </div>
+
+                    <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
+                        <div className="p-4 border-b bg-muted/20">
+                            <h3 className="font-semibold">Upload History</h3>
+                        </div>
+                        <div className="p-0">
+                            <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading history...</div>}>
+                                <UploadHistory />
+                            </Suspense>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                {/* ACCOUNT TAB */}
+                <TabsContent value="account" className="space-y-6">
+                    <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold mb-4">Profile</h3>
+                            <div className="space-y-4">
+                                <div className="grid gap-1">
+                                    <label className="text-xs font-medium text-muted-foreground uppercase">Email</label>
+                                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                        <span className="text-sm font-medium truncate">{userEmail}</span>
+                                        <span className="text-[10px] px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full font-medium">
+                                            Verified
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm text-muted-foreground">Date</span>
-                                    <span className="text-sm">{formatDate(paymentDetails.created_at)}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-muted-foreground">Method</span>
-                                    <span className="text-sm">{paymentDetails.payment_method || 'Online'}</span>
-                                </div>
-                                <div className="mt-3 pt-3 border-t flex items-center justify-between">
-                                    <span className="text-xs text-muted-foreground font-mono">{paymentDetails.order_id}</span>
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
-                                        PAID
-                                    </span>
+                                <div className="grid gap-1">
+                                    <label className="text-xs font-medium text-muted-foreground uppercase">Member Since</label>
+                                    <div className="p-3 bg-muted/50 rounded-lg">
+                                        <span className="text-sm font-medium">
+                                            {paymentDetails ? formatDate(paymentDetails.created_at) : 'N/A'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                )}
 
-                {/* Features Included - Spans 2 cols on large */}
-                <div className="col-span-1 md:col-span-2 lg:col-span-2 rounded-lg border bg-card text-card-foreground shadow-sm">
-                    <div className="p-6">
-                        <h2 className="text-xl font-semibold mb-4">
-                            {isPremium ? 'Your Premium Features' : 'Premium Features'}
-                        </h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {[
-                                'Unlimited transaction uploads',
-                                'AI-powered categorization',
-                                'Advanced spending forecasts',
-                                'Goal tracking & budgets',
-                                'Bank account connections',
-                                'Detailed insights & analytics',
-                                'Subscription tracker',
-                                'Export & reporting tools',
-                            ].map((feature, index) => (
-                                <div key={index} className="flex items-start gap-3">
-                                    <div className={`mt-1 h-5 w-5 rounded-full flex items-center justify-center ${isPremium ? 'bg-green-100' : 'bg-muted'
-                                        }`}>
-                                        <svg
-                                            className={`h-3 w-3 ${isPremium ? 'text-green-600' : 'text-muted-foreground'}`}
-                                            fill="none"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                        >
-                                            <path d="M5 13l4 4L19 7"></path>
-                                        </svg>
-                                    </div>
-                                    <span className={isPremium ? 'text-foreground' : 'text-muted-foreground'}>
-                                        {feature}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Bank Connections - Spans full width */}
-                <div className="col-span-1 md:col-span-2 lg:col-span-3">
-                    <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
-                        <BankConnections />
-                    </Suspense>
-                </div>
-
-                {/* Upload History - Spans full width */}
-                <div className="col-span-1 md:col-span-2 lg:col-span-3">
-                    <Suspense fallback={<div className="h-[200px] bg-muted animate-pulse rounded"></div>}>
-                        <UploadHistory />
-                    </Suspense>
-                </div>
-
-                {/* Danger Zone - Spans full width */}
-                <div className="col-span-1 md:col-span-2 lg:col-span-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/10 dark:border-red-900/50">
-                    <div className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div>
-                            <h2 className="text-xl font-semibold mb-1 text-red-600 dark:text-red-400">Danger Zone</h2>
-                            <p className="text-sm text-muted-foreground">
-                                Permanently delete your account and all associated data.
+                    {/* Danger Zone */}
+                    <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/10 dark:border-red-900/50 overflow-hidden">
+                        <div className="p-6">
+                            <h3 className="text-base font-semibold text-red-600 dark:text-red-400 flex items-center gap-2 mb-2">
+                                <AlertTriangle className="h-4 w-4" />
+                                Danger Zone
+                            </h3>
+                            <p className="text-sm text-red-600/80 dark:text-red-400/80 mb-4">
+                                Permanently delete your account and all data.
                             </p>
-                        </div>
 
-                        <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-                            <DialogTrigger asChild>
-                                <Button variant="destructive" className="bg-red-600 hover:bg-red-700 shrink-0">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete Account
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
-                                <DialogHeader>
-                                    <DialogTitle className="text-red-600 flex items-center gap-2">
-                                        <AlertTriangle className="h-5 w-5" />
-                                        Delete Account Permanently?
-                                    </DialogTitle>
-                                    <DialogDescription className="pt-2">
-                                        This action is <strong>irreversible</strong>. It will permanently delete:
-                                    </DialogDescription>
-                                </DialogHeader>
-
-                                <div className="py-4">
-                                    <ul className="list-disc pl-6 space-y-1 text-sm text-muted-foreground">
-                                        <li>All your uploaded bank statements</li>
-                                        <li>All transaction history and categorization</li>
-                                        <li>All learned AI rules and merchant patterns</li>
-                                        <li>All financial goals and budgets</li>
-                                        <li>Your subscription and payment history</li>
-                                        <li>Your account login credentials</li>
-                                    </ul>
-
-                                    <div className="mt-6 space-y-2">
-                                        <Label htmlFor="confirm-delete" className="text-xs font-semibold uppercase text-muted-foreground">
-                                            Type "DELETE" to confirm
-                                        </Label>
-                                        <Input
-                                            id="confirm-delete"
-                                            value={deleteConfirmText}
-                                            onChange={(e) => setDeleteConfirmText(e.target.value)}
-                                            placeholder="DELETE"
-                                            className="border-red-200 focus-visible:ring-red-500"
-                                        />
+                            <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="destructive" className="w-full bg-red-600 hover:bg-red-700">
+                                        Delete Account
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle className="text-destructive">Delete Account Permanently?</DialogTitle>
+                                        <DialogDescription>
+                                            This will permanently delete all your data, including transactions, budgets, and account settings.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="py-4 space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="confirm-delete">Type "DELETE" to confirm</Label>
+                                            <Input
+                                                id="confirm-delete"
+                                                value={deleteConfirmText}
+                                                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                                placeholder="DELETE"
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-
-                                <DialogFooter className="gap-2 sm:gap-0">
-                                    <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        variant="destructive"
-                                        onClick={handleDeleteAccount}
-                                        disabled={deleteConfirmText !== 'DELETE' || isDeleting}
-                                        className="bg-red-600 hover:bg-red-700"
-                                    >
-                                        {isDeleting ? 'Deleting...' : 'Permanently Delete Account'}
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={handleDeleteAccount}
+                                            disabled={deleteConfirmText !== 'DELETE' || isDeleting}
+                                        >
+                                            {isDeleting ? 'Deleting...' : 'Delete Account'}
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
                     </div>
-                </div>
-            </div>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

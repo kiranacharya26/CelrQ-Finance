@@ -4,15 +4,12 @@ import { useState, useMemo, Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Card } from '@/components/ui/card';
-import { exportToCSV, exportToPDF } from '@/lib/export';
-import { getAllTags } from '@/lib/transactionNotes';
 import { useAuth } from '@/hooks/useAuth';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useTransactionFilters } from '@/hooks/useTransactionFilters';
 import { TransactionsHeader } from '@/components/transactions/TransactionsHeader';
 import { TransactionStats } from '@/components/transactions/TransactionStats';
 import { TransactionFilters } from '@/components/transactions/TransactionFilters';
-import { DateRange } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { Loader2, AlertCircle } from 'lucide-react';
 
@@ -33,27 +30,27 @@ function TransactionsContent() {
     const monthParam = searchParams.get('month') || 'All Months';
     const selectedBank = searchParams.get('bank') || 'all';
 
-    const setSelectedBank = (bank: string) => {
-        const params = new URLSearchParams(searchParams);
-        if (bank && bank !== 'all') {
-            params.set('bank', bank);
-        } else {
-            params.delete('bank');
-        }
-        router.replace(`${pathname}?${params.toString()}`);
-    };
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
 
-    const handleMonthChange = (month: string) => {
-        const params = new URLSearchParams(searchParams);
-        if (month && month !== 'All Months') {
-            params.set('month', month);
-        } else {
-            params.delete('month');
-        }
-        router.replace(`${pathname}?${params.toString()}`);
-    };
+    const dateRange = useMemo(() => ({
+        from: fromParam ? new Date(fromParam + '-01') : null,
+        to: toParam ? new Date(toParam + '-01') : null
+    }), [fromParam, toParam]);
 
     const [activeUpload, setActiveUpload] = useState<any>(null);
+
+    const {
+        transactions,
+        availableBanks,
+        uniqueCategories,
+        availableTags,
+        loading,
+        refresh
+    } = useTransactions({
+        userEmail,
+        selectedBank,
+    });
 
     // Poll for active uploads
     useEffect(() => {
@@ -82,45 +79,17 @@ function TransactionsContent() {
         checkUploads();
         const interval = setInterval(checkUploads, 3000);
         return () => clearInterval(interval);
-    }, [userEmail, activeUpload]);
-
-    const { transactions, availableBanks, loading, refresh } = useTransactions({
-        userEmail,
-        selectedBank,
-    });
+    }, [userEmail, activeUpload, refresh]);
 
     const {
         filteredTransactions,
         filters,
-        setSearchQuery,
-        setCategoryFilter,
-        setTagFilter,
-        setTypeFilter,
-        setSortBy,
-        setMonthFilter,
-        clearFilters,
     } = useTransactionFilters(transactions);
-
-    useEffect(() => {
-        setMonthFilter(monthParam);
-    }, [monthParam, setMonthFilter]);
 
     // Handler for category changes - refresh data but keep filters
     const handleCategoryChange = () => {
         refresh();
     };
-
-    const availableTags = useMemo(() => {
-        return userEmail ? getAllTags(userEmail) : [];
-    }, [userEmail, transactions]);
-
-    const uniqueCategories = useMemo(() => {
-        const cats = new Set<string>();
-        transactions.forEach(t => {
-            if (t.category) cats.add(t.category);
-        });
-        return Array.from(cats).sort();
-    }, [transactions]);
 
     // Calculate totals
     const { totalIncome, totalExpenses, transactionCount } = useMemo(() => {
@@ -182,24 +151,6 @@ function TransactionsContent() {
         filters.dateRange.from !== null ||
         filters.dateRange.to !== null;
 
-    // Calculate unique months
-    const months = useMemo(() => {
-        const uniqueMonths = new Set<string>();
-        transactions.forEach(t => {
-            const dateKey = Object.keys(t).find(k => /^date$/i.test(k));
-            if (dateKey && t[dateKey]) {
-                const date = new Date(t[dateKey]);
-                if (!isNaN(date.getTime())) {
-                    const monthStr = date.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-                    uniqueMonths.add(monthStr);
-                }
-            }
-        });
-        return Array.from(uniqueMonths).sort((a, b) => {
-            return new Date(b).getTime() - new Date(a).getTime();
-        });
-    }, [transactions]);
-
     if (loading) {
         return <TransactionsSkeleton />;
     }
@@ -232,15 +183,7 @@ function TransactionsContent() {
             )}
 
             <TransactionsHeader
-                selectedBank={selectedBank}
-                onBankChange={setSelectedBank}
-                availableBanks={availableBanks}
                 monthParam={monthParam}
-                onExportCSV={() => exportToCSV(filteredTransactions)}
-                onExportPDF={() => exportToPDF(filteredTransactions)}
-                months={months}
-                selectedMonth={monthParam}
-                onMonthChange={handleMonthChange}
             />
 
             {/* Stats Cards */}
@@ -253,18 +196,13 @@ function TransactionsContent() {
 
             {/* Filters */}
             <TransactionFilters
-                searchQuery={filters.searchQuery}
-                onSearchChange={setSearchQuery}
-                categoryFilter={filters.categoryFilter}
-                onCategoryChange={setCategoryFilter}
-                tagFilter={filters.tagFilter}
-                onTagChange={setTagFilter}
-                sortBy={filters.sortBy}
-                onSortChange={setSortBy}
+                filters={filters}
+                availableBanks={availableBanks}
                 uniqueCategories={uniqueCategories}
                 availableTags={availableTags}
-                hasActiveFilters={hasActiveFilters}
-                onClearFilters={clearFilters}
+                onFilterChange={(newFilters) => {
+                    // Filters are handled by the hook, but we might need to trigger updates
+                }}
             />
 
             {/* Transaction Table */}

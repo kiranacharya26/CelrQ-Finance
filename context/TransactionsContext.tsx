@@ -4,10 +4,15 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, R
 import { Transaction } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useSession } from 'next-auth/react';
+import { parseDate } from '@/lib/dateParser';
+import { getAllTags } from '@/lib/transactionNotes';
 
 interface TransactionsContextType {
     transactions: Transaction[];
     availableBanks: string[];
+    availableMonths: string[];
+    uniqueCategories: string[];
+    availableTags: string[];
     loading: boolean;
     refresh: () => void;
     deleteBank: (bankName: string) => Promise<void>;
@@ -163,13 +168,46 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const availableMonths = useMemo(() => {
+        const uniqueMonths = new Map<string, Date>();
+        transactions.forEach(t => {
+            if (t.date) {
+                const date = parseDate(t.date);
+                if (date && !isNaN(date.getTime())) {
+                    const monthStr = date.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+                    if (!uniqueMonths.has(monthStr)) {
+                        uniqueMonths.set(monthStr, date);
+                    }
+                }
+            }
+        });
+        return Array.from(uniqueMonths.entries())
+            .sort(([, dateA], [, dateB]) => dateB.getTime() - dateA.getTime())
+            .map(([monthStr]) => monthStr);
+    }, [transactions]);
+
+    const uniqueCategories = useMemo(() => {
+        const cats = new Set<string>();
+        transactions.forEach(t => {
+            if (t.category) cats.add(t.category);
+        });
+        return Array.from(cats).sort();
+    }, [transactions]);
+
+    const availableTags = useMemo(() => {
+        return userEmail ? getAllTags(userEmail) : [];
+    }, [userEmail, transactions]);
+
     const value = useMemo(() => ({
         transactions,
         availableBanks,
+        availableMonths,
+        uniqueCategories,
+        availableTags,
         loading,
         refresh,
         deleteBank
-    }), [transactions, availableBanks, loading, refresh]);
+    }), [transactions, availableBanks, availableMonths, uniqueCategories, availableTags, loading, refresh]);
 
     return (
         <TransactionsContext.Provider value={value}>

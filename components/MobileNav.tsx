@@ -54,7 +54,7 @@ export function MobileNav() {
         }
     };
 
-    if (!userEmail) return null;
+    if (!userEmail || pathname === '/') return null;
 
     return (
         <div className="fixed bottom-0 left-0 right-0 z-50 block md:hidden">

@@ -1,21 +1,23 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Transaction, TransactionFilters, DateRange } from '@/types';
+import { useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Transaction } from '@/types';
 import { parseDate } from '@/lib/dateParser';
 
-/**
- * Custom hook for filtering and searching transactions
- * Handles all filter logic in one place
- */
 export function useTransactionFilters(transactions: Transaction[]) {
-    const [filters, setFilters] = useState<TransactionFilters & { monthFilter: string; typeFilter: string }>({
-        searchQuery: '',
-        categoryFilter: 'all',
-        tagFilter: 'all',
-        typeFilter: 'all',
-        sortBy: 'date-desc',
-        dateRange: { from: null, to: null },
-        monthFilter: 'All Months',
-    });
+    const searchParams = useSearchParams();
+
+    const filters = useMemo(() => ({
+        searchQuery: searchParams.get('q') || '',
+        categoryFilter: searchParams.get('category') || 'all',
+        tagFilter: searchParams.get('tag') || 'all',
+        typeFilter: searchParams.get('type') || 'all',
+        sortBy: searchParams.get('sort') || 'date-desc',
+        dateRange: {
+            from: searchParams.get('from') ? new Date(searchParams.get('from') + '-01') : null,
+            to: searchParams.get('to') ? new Date(searchParams.get('to') + '-01') : null,
+        },
+        monthFilter: searchParams.get('month') || 'All Months',
+    }), [searchParams]);
 
     // Find date key dynamically
     const dateKey = useMemo(() => {
@@ -62,8 +64,15 @@ export function useTransactionFilters(transactions: Transaction[]) {
             result = result.filter((t) => {
                 const transDate = parseDate(t[dateKey]);
                 if (!transDate) return false;
-                if (filters.dateRange.from && transDate < filters.dateRange.from) return false;
-                if (filters.dateRange.to && transDate > filters.dateRange.to) return false;
+
+                if (filters.dateRange.from) {
+                    const fromDate = new Date(filters.dateRange.from.getFullYear(), filters.dateRange.from.getMonth(), 1);
+                    if (transDate < fromDate) return false;
+                }
+                if (filters.dateRange.to) {
+                    const toDate = new Date(filters.dateRange.to.getFullYear(), filters.dateRange.to.getMonth() + 1, 0, 23, 59, 59);
+                    if (transDate > toDate) return false;
+                }
                 return true;
             });
         }
@@ -74,68 +83,26 @@ export function useTransactionFilters(transactions: Transaction[]) {
                 const dateA = parseDate(a[dateKey]);
                 const dateB = parseDate(b[dateKey]);
                 if (!dateA || !dateB) return 0;
-                return filters.sortBy === 'date-desc'
-                    ? dateB.getTime() - dateA.getTime()
-                    : dateA.getTime() - dateB.getTime();
+
+                if (filters.sortBy === 'date-desc') return dateB.getTime() - dateA.getTime();
+                if (filters.sortBy === 'date-asc') return dateA.getTime() - dateB.getTime();
+
+                const amountA = parseFloat(String(a.amount).replace(/[^0-9.-]+/g, '')) || 0;
+                const amountB = parseFloat(String(b.amount).replace(/[^0-9.-]+/g, '')) || 0;
+
+                if (filters.sortBy === 'amount-desc') return amountB - amountA;
+                if (filters.sortBy === 'amount-asc') return amountA - amountB;
+
+                return 0;
             });
         }
 
         return result;
     }, [transactions, filters, dateKey]);
 
-    const setSearchQuery = useCallback((query: string) => {
-        setFilters((prev) => ({ ...prev, searchQuery: query }));
-    }, []);
-
-    const setCategoryFilter = useCallback((category: string) => {
-        setFilters((prev) => ({ ...prev, categoryFilter: category }));
-    }, []);
-
-    const setTagFilter = useCallback((tag: string) => {
-        setFilters((prev) => ({ ...prev, tagFilter: tag }));
-    }, []);
-
-    const setTypeFilter = useCallback((type: string) => {
-        setFilters((prev) => ({ ...prev, typeFilter: type }));
-    }, []);
-
-    const setSortBy = useCallback((sort: string) => {
-        setFilters((prev) => ({ ...prev, sortBy: sort }));
-    }, []);
-
-    const setDateRange = useCallback((range: DateRange) => {
-        setFilters((prev) => ({ ...prev, dateRange: range }));
-    }, []);
-
-    const setMonthFilter = useCallback((month: string) => {
-        setFilters((prev) => {
-            if (prev.monthFilter === month) return prev;
-            return { ...prev, monthFilter: month };
-        });
-    }, []);
-
-    const clearFilters = useCallback(() => {
-        setFilters({
-            searchQuery: '',
-            categoryFilter: 'all',
-            tagFilter: 'all',
-            typeFilter: 'all',
-            sortBy: 'date-desc',
-            dateRange: { from: null, to: null },
-            monthFilter: 'All Months',
-        });
-    }, []);
-
     return {
         filteredTransactions,
         filters,
-        setSearchQuery,
-        setCategoryFilter,
-        setTagFilter,
-        setTypeFilter,
-        setSortBy,
-        setDateRange,
-        setMonthFilter,
-        clearFilters,
     };
 }
+

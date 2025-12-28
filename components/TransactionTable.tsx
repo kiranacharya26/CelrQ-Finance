@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Info, Plus, X, RefreshCw, FileText, Tag as TagIcon, Filter } from "lucide-react";
+import { DynamicIcon } from "@/components/icons";
 import {
     Popover,
     PopoverContent,
@@ -56,8 +57,6 @@ interface TransactionTableProps {
     onTypeFilterChange?: (type: string) => void;
     uniqueCategories?: string[];
 }
-
-
 
 export function TransactionTable({
     transactions,
@@ -224,6 +223,7 @@ export function TransactionTable({
                                     checked={currentTransactions.length > 0 && selectedIds.size === currentTransactions.length}
                                     onCheckedChange={toggleSelectAll}
                                     aria-label="Select all"
+                                    className="h-4 w-4 flex-none"
                                 />
                             </TableHead>
                             {headers.map((header, idx) => {
@@ -280,7 +280,7 @@ export function TransactionTable({
                                                                         className={currentCategoryFilter === cat ? 'bg-accent' : ''}
                                                                     >
                                                                         <div className="flex items-center gap-2 w-full">
-                                                                            <span>{getCategoryIcon(cat).icon}</span>
+                                                                            <DynamicIcon name={getCategoryIcon(cat).icon} color={getCategoryIcon(cat).color} className="h-4 w-4" />
                                                                             <span className="truncate">{cat}</span>
                                                                         </div>
                                                                     </DropdownMenuItem>
@@ -345,6 +345,7 @@ export function TransactionTable({
                                             checked={isSelected}
                                             onCheckedChange={() => toggleSelectRow(t.id)}
                                             aria-label="Select row"
+                                            className="h-4 w-4 flex-none"
                                         />
                                     </TableCell>
                                     {headers.map((header, headerIdx) => {
@@ -390,7 +391,7 @@ export function TransactionTable({
                                                                     return (
                                                                         <SelectItem key={cat} value={cat}>
                                                                             <div className="flex items-center gap-2">
-                                                                                <span style={{ color }}>{icon}</span>
+                                                                                <DynamicIcon name={icon} color={color} className="h-4 w-4" />
                                                                                 {cat}
                                                                             </div>
                                                                         </SelectItem>
@@ -543,111 +544,121 @@ export function TransactionTable({
                 </Table>
             </div>
 
-            {/* Mobile Card View */}
-            <div className="block md:hidden space-y-3">
-                {currentTransactions.map((t, i) => {
-                    const globalIndex = startIndex + i;
-                    const isSelected = selectedIds.has(t.id);
-                    const date = t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'N/A';
-                    const description = t.description || t.narration || 'No Description';
-                    const amount = t['Withdrawal Amt.'] || t['Deposit Amt.'] || t.amount || 0;
-                    const isCredit = !!t['Deposit Amt.'] || t.type === 'income';
-                    const category = t.category || 'Other';
-                    const { icon: categoryIcon, color: categoryColor } = getCategoryIcon(category);
+            {/* Mobile List View */}
+            <div className="block md:hidden space-y-4">
+                {/* Mobile Selection Header */}
+                <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                        <Checkbox
+                            checked={currentTransactions.length > 0 && selectedIds.size === currentTransactions.length}
+                            onCheckedChange={toggleSelectAll}
+                            aria-label="Select all"
+                            className="h-5 w-5 rounded-md border-muted-foreground/30"
+                        />
+                        <span className="text-sm font-medium text-muted-foreground">
+                            {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select All'}
+                        </span>
+                    </div>
+                    {selectedIds.size > 0 && (
+                        <Button variant="ghost" size="sm" onClick={() => toggleSelectAll(false)} className="h-8 text-xs font-medium text-destructive hover:text-destructive">
+                            Clear Selection
+                        </Button>
+                    )}
+                </div>
 
-                    return (
-                        <div
-                            key={globalIndex}
-                            className={`relative rounded-lg border bg-card overflow-hidden transition-all ${isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border'}`}
-                        >
-                            {/* Top Section - Description & Amount */}
-                            <div className="p-4 pb-3">
-                                <div className="flex items-start gap-3">
-                                    {/* Checkbox */}
-                                    <div className="pt-0.5 flex-shrink-0">
-                                        <Checkbox
-                                            checked={isSelected}
-                                            onCheckedChange={() => toggleSelectRow(t.id)}
-                                            aria-label="Select transaction"
-                                            className="h-4 w-4"
-                                        />
-                                    </div>
+                <div className="space-y-3">
+                    {currentTransactions.map((t, i) => {
+                        const globalIndex = startIndex + i;
+                        const isSelected = selectedIds.has(t.id);
+                        const date = t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'N/A';
+                        const description = t.description || t.narration || 'No Description';
+                        const amount = t['Withdrawal Amt.'] || t['Deposit Amt.'] || t.amount || 0;
+                        const isCredit = !!t['Deposit Amt.'] || t.type === 'income';
+                        const category = t.category || 'Other';
+                        const { icon: categoryIcon, color: categoryColor } = getCategoryIcon(category);
 
-                                    {/* Description & Date */}
-                                    <div className="flex-1 min-w-0">
-                                        <p
-                                            className="font-medium text-sm leading-tight mb-1 line-clamp-2 break-words cursor-pointer hover:text-primary transition-colors"
-                                            onClick={() => {
-                                                const merchant = t.merchant_name || t.description || t.narration;
-                                                if (merchant) {
-                                                    router.push(`/dashboard/merchants/${encodeURIComponent(merchant)}`);
-                                                }
-                                            }}
-                                        >
-                                            {description}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {date}
-                                        </p>
-                                    </div>
-
-                                    {/* Amount */}
-                                    <div className="flex-shrink-0 text-right">
-                                        <div className={`text-base font-bold ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
-                                            {isCredit ? '+' : '-'}₹{Number(amount).toLocaleString('en-IN')}
+                        return (
+                            <div
+                                key={globalIndex}
+                                className={`relative bg-card rounded-xl border transition-all duration-200 ${isSelected ? 'border-primary ring-1 ring-primary/20 bg-primary/5' : 'border-border/50 shadow-sm'}`}
+                            >
+                                <div className="p-4">
+                                    <div className="flex items-start gap-3">
+                                        {/* Checkbox */}
+                                        <div className="pt-1">
+                                            <Checkbox
+                                                checked={isSelected}
+                                                onCheckedChange={() => toggleSelectRow(t.id)}
+                                                className="h-5 w-5 rounded-md border-muted-foreground/30"
+                                            />
                                         </div>
-                                        <Badge
-                                            variant="outline"
-                                            className={`text-[10px] mt-1 ${isCredit ? 'border-green-600/30 text-green-600' : 'border-red-600/30 text-red-600'}`}
-                                        >
-                                            {t.type || (isCredit ? 'Income' : 'Expense')}
-                                        </Badge>
+
+                                        {/* Content */}
+                                        <div className="flex-1 min-w-0 space-y-1">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <h3
+                                                    className="font-semibold text-base leading-tight truncate pr-2 cursor-pointer"
+                                                    onClick={() => {
+                                                        const merchant = t.merchant_name || t.description || t.narration;
+                                                        if (merchant) {
+                                                            router.push(`/dashboard/merchants/${encodeURIComponent(merchant)}`);
+                                                        }
+                                                    }}
+                                                >
+                                                    {description}
+                                                </h3>
+                                                <span className={`font-bold whitespace-nowrap ${isCredit ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                    {isCredit ? '+' : '-'}₹{Number(amount).toLocaleString('en-IN')}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center justify-between mt-2">
+                                                <span className="text-xs text-muted-foreground font-medium">{date}</span>
+
+                                                {/* Category Selector */}
+                                                <Select
+                                                    value={category}
+                                                    onValueChange={(value) => {
+                                                        if (value === '__add_new__') {
+                                                            setIsAddingCategory(true);
+                                                        } else {
+                                                            handleCategoryChangeWithCheck(globalIndex, value);
+                                                        }
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="h-7 min-w-[100px] w-auto gap-1.5 px-2 text-xs font-medium border-0 bg-secondary/50 hover:bg-secondary transition-colors rounded-full">
+                                                        <DynamicIcon name={categoryIcon} color={categoryColor} className="h-3.5 w-3.5" />
+                                                        <span className="truncate max-w-[100px]">{category}</span>
+                                                    </SelectTrigger>
+                                                    <SelectContent align="end">
+                                                        {allCategories.map(cat => {
+                                                            const { icon, color } = getCategoryIcon(cat);
+                                                            return (
+                                                                <SelectItem key={cat} value={cat}>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <DynamicIcon name={icon} color={color} className="h-4 w-4" />
+                                                                        <span>{cat}</span>
+                                                                    </div>
+                                                                </SelectItem>
+                                                            );
+                                                        })}
+                                                        <DropdownMenuSeparator />
+                                                        <SelectItem value="__add_new__" className="text-primary font-medium">
+                                                            <div className="flex items-center gap-2">
+                                                                <Plus className="h-3.5 w-3.5" />
+                                                                <span>Create New Category</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Bottom Section - Category */}
-                            <div className="px-4 pb-3 pt-2 border-t bg-muted/30">
-                                <Select
-                                    value={category}
-                                    onValueChange={(value) => {
-                                        if (value === '__add_new__') {
-                                            setIsAddingCategory(true);
-                                        } else {
-                                            handleCategoryChangeWithCheck(globalIndex, value);
-                                        }
-                                    }}
-                                >
-                                    <SelectTrigger className="w-full h-9 text-xs border-border/50 bg-background hover:bg-background/80">
-                                        <div className="flex items-center gap-2">
-                                            <span style={{ color: categoryColor }}>{categoryIcon}</span>
-                                            <span className="font-medium">{category}</span>
-                                        </div>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {allCategories.map(cat => {
-                                            const { icon, color } = getCategoryIcon(cat);
-                                            return (
-                                                <SelectItem key={cat} value={cat}>
-                                                    <div className="flex items-center gap-2">
-                                                        <span style={{ color }}>{icon}</span>
-                                                        <span>{cat}</span>
-                                                    </div>
-                                                </SelectItem>
-                                            );
-                                        })}
-                                        <SelectItem value="__add_new__" className="text-primary">
-                                            <div className="flex items-center gap-2">
-                                                <Plus className="h-4 w-4" />
-                                                <span>Create New Category</span>
-                                            </div>
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
 
 

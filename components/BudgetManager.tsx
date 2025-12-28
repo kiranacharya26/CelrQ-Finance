@@ -12,7 +12,7 @@ import { Transaction } from '@/types';
 import { Plus, AlertCircle, TrendingUp, CheckCircle2, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useBudgets, saveBudget, deleteBudget, Budget } from '@/lib/budgets';
 import { useSession } from 'next-auth/react';
-import { BudgetStories } from './BudgetStories';
+import { BudgetStories } from '@/components/BudgetStories';
 
 interface BudgetManagerProps {
     transactions: Transaction[];
@@ -96,6 +96,64 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
         .filter(([cat]) => budgets.some(b => b.category === cat))
         .reduce((sum, [, amt]) => sum + amt, 0);
 
+    // ... (keep existing state)
+
+    const BudgetCard = ({ budget }: { budget: Budget }) => {
+        const spent = categorySpending[budget.category] || 0;
+        const percentage = Math.min((spent / budget.amount) * 100, 100);
+        const isOverBudget = spent > budget.amount;
+
+        return (
+            <Card className={`w-full sm:min-w-[300px] sm:max-w-[350px] snap-center flex-shrink-0 ${isOverBudget ? "border-red-500/50 bg-red-500/5" : ""}`}>
+                <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-2">
+                            <CardTitle className="text-base font-semibold truncate max-w-[150px]">{budget.category}</CardTitle>
+                            {isOverBudget ? (
+                                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                            ) : (
+                                <CheckCircle2 className="h-5 w-5 text-green-500/50 flex-shrink-0" />
+                            )}
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleEditBudget(budget)}
+                            >
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => confirmDelete(budget.category)}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                    <CardDescription>
+                        ₹{spent.toLocaleString('en-IN')} / ₹{budget.amount.toLocaleString('en-IN')}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Progress
+                        value={percentage}
+                        className={`h-2 ${isOverBudget ? "bg-red-100" : ""}`}
+                    />
+                    <div className="mt-2 text-xs text-muted-foreground flex justify-between">
+                        <span>{percentage.toFixed(0)}% used</span>
+                        <span>₹{Math.max(budget.amount - spent, 0).toLocaleString('en-IN')} remaining</span>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    };
+
+
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -111,8 +169,13 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                     }
                 }}>
                     <DialogTrigger asChild>
-                        <Button>
+                        <Button size="sm" className="hidden sm:flex">
                             <Plus className="mr-2 h-4 w-4" /> Add Baseline
+                        </Button>
+                    </DialogTrigger>
+                    <DialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="sm:hidden h-8 w-8 p-0">
+                            <Plus className="h-4 w-4" />
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -176,13 +239,13 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
             {/* Overall Progress - Only show if budgets exist */}
             {budgets.length > 0 && (
                 <Card className="border-none shadow-none sm:border sm:shadow-sm">
-                    <CardHeader className="px-4 sm:px-6 pb-2 sm:pb-6">
+                    <CardHeader className="px-0 sm:px-6 pb-2 sm:pb-6">
                         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                             <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 flex-shrink-0" />
                             <span>Overall Pattern Progress</span>
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="px-4 sm:px-6">
+                    <CardContent className="px-0 sm:px-6">
                         <div className="flex items-baseline justify-between gap-2 mb-2">
                             <div className="flex items-baseline gap-2">
                                 <span className="text-lg font-bold">₹{totalSpent.toLocaleString('en-IN')}</span>
@@ -198,7 +261,7 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                 </Card>
             )}
 
-            {/* Mobile Stories View */}
+            {/* Mobile View: Stories */}
             <div className="block md:hidden -mx-4 px-4 mb-2">
                 <BudgetStories
                     budgets={budgets}
@@ -250,60 +313,9 @@ export function BudgetManager({ transactions, currentMonth }: BudgetManagerProps
                             </Button>
                         </div>
                     ) : (
-                        budgets.map(budget => {
-                            const spent = categorySpending[budget.category] || 0;
-                            const percentage = Math.min((spent / budget.amount) * 100, 100);
-                            const isOverBudget = spent > budget.amount;
-                            const isNearLimit = percentage > 85;
-
-                            return (
-                                <Card key={budget.category} className={`min-w-[300px] max-w-[350px] snap-center flex-shrink-0 ${isOverBudget ? "border-red-500/50 bg-red-500/5" : ""}`}>
-                                    <CardHeader className="pb-2">
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex items-center gap-2">
-                                                <CardTitle className="text-base font-semibold truncate max-w-[150px]">{budget.category}</CardTitle>
-                                                {isOverBudget ? (
-                                                    <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                                                ) : (
-                                                    <CheckCircle2 className="h-5 w-5 text-green-500/50 flex-shrink-0" />
-                                                )}
-                                            </div>
-                                            <div className="flex gap-1 flex-shrink-0">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    onClick={() => handleEditBudget(budget)}
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-destructive"
-                                                    onClick={() => confirmDelete(budget.category)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                        <CardDescription>
-                                            ₹{spent.toLocaleString('en-IN')} / ₹{budget.amount.toLocaleString('en-IN')}
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <Progress
-                                            value={percentage}
-                                            className={`h-2 ${isOverBudget ? "bg-red-100" : ""}`}
-                                        />
-                                        <div className="mt-2 text-xs text-muted-foreground flex justify-between">
-                                            <span>{percentage.toFixed(0)}% used</span>
-                                            <span>₹{Math.max(budget.amount - spent, 0).toLocaleString('en-IN')} remaining</span>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })
+                        budgets.map(budget => (
+                            <BudgetCard key={budget.category} budget={budget} />
+                        ))
                     )}
                 </div>
             </div>

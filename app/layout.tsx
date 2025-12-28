@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
+import { NavbarWrapper } from "@/components/NavbarWrapper";
 import { SessionProvider } from "@/components/SessionProvider";
 import { TransactionsProvider } from "@/context/TransactionsContext";
 import { ChatInterface } from "@/components/ChatInterface";
 import { MobileNav } from "@/components/MobileNav";
 import { Toaster } from "sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -94,17 +95,24 @@ export default function RootLayout({
 
         <SessionProvider>
           <TransactionsProvider>
-            <div className="relative flex min-h-screen flex-col">
-              <Suspense fallback={<div className="h-16 border-b bg-background" />}>
-                <Navbar />
-              </Suspense>
-              <main id="main-content" className="flex-1 overflow-x-hidden pb-20 md:pb-0">
-                {children}
-              </main>
-              <ChatInterface />
-              <MobileNav />
-              <Toaster />
-            </div>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <div className="relative flex min-h-screen flex-col">
+                <Suspense fallback={<div className="h-16 border-b bg-background" />}>
+                  <NavbarWrapper />
+                </Suspense>
+                <main id="main-content" className="flex-1 overflow-x-hidden pb-20 md:pb-0">
+                  {children}
+                </main>
+                <ChatInterface />
+                <MobileNav />
+                <Toaster />
+              </div>
+            </ThemeProvider>
           </TransactionsProvider>
         </SessionProvider>
       </body>

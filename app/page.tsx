@@ -8,8 +8,9 @@ import { supabase } from '@/lib/supabase';
 import { useSession, signIn } from 'next-auth/react';
 import { UserStorage } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
-import { LogIn } from 'lucide-react';
+import { LogIn, Brain, ShieldCheck, TrendingUp, Lock, Zap, Database, Shield, CheckCircle } from 'lucide-react';
 import CashfreePaymentButton from '@/components/CashfreePaymentButton';
+import Image from 'next/image';
 
 export default function Home() {
   const router = useRouter();
@@ -155,117 +156,80 @@ export default function Home() {
 
   if (!session) {
     return (
-      <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center p-4 md:p-12 bg-gradient-to-b from-background to-muted/20">
-        <div className="z-10 max-w-6xl w-full flex flex-col gap-12">
+      <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center relative overflow-hidden">
+        {/* Background Gradients */}
+        <div className="absolute inset-0 -z-10 h-full w-full bg-white dark:bg-slate-950 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
+          <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-indigo-500 opacity-20 blur-[100px]"></div>
+          <div className="absolute right-0 bottom-0 -z-10 h-[310px] w-[310px] rounded-full bg-purple-500 opacity-20 blur-[100px]"></div>
+        </div>
+
+        <div className="z-10 max-w-6xl w-full flex flex-col gap-16 px-4 md:px-12 py-12 md:py-20">
           {/* Hero Section */}
-          <div className="text-center space-y-6">
-            <div className="inline-block px-4 py-2 bg-indigo-100 dark:bg-indigo-950 rounded-full mb-4">
-              <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                🎉 7-Day Free Trial • No Credit Card Required
+          <div className="text-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div className="flex justify-center mb-6">
+              <h1 className="text-6xl md:text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 mb-4 tracking-tight drop-shadow-sm">
+                ClerQ
+              </h1>
+            </div>
+
+            <div className="space-y-4 max-w-3xl mx-auto">
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+                Master Your Money with <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">AI Precision</span>
+              </h1>
+              <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                Stop guessing where your money goes. Upload your bank statement and let our AI categorize, analyze, and visualize your financial life in seconds.
               </p>
             </div>
-            <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-              ClerQ
-            </h1>
-            <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
-              AI-powered finance tracking that learns from your spending habits.
-              Your data stays private and secure.
-            </p>
-          </div>
 
-          {/* Sign In Button */}
-          <div className="w-full max-w-md mx-auto flex justify-center">
-            <Button onClick={() => signIn('google')} size="lg" className="gap-2 px-8 py-6 text-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl">
-              <LogIn className="h-5 w-5" />
-              Start 7-Day Free Trial with Google
-            </Button>
-          </div>
-
-          {/* Security & Privacy Section */}
-          <div className="max-w-4xl mx-auto w-full">
-            <h2 className="text-2xl font-bold text-center mb-8">Your Security & Privacy</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Secure Authentication */}
-              <div className="p-6 rounded-xl border bg-card">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-950">
-                    <span className="text-2xl">🔐</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg mb-2">Secure Google Login</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Sign in with Google OAuth 2.0. We never see or store your password. Your Google account's 2FA protection applies automatically.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* No Data Selling */}
-              <div className="p-6 rounded-xl border bg-card">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-lg bg-green-100 dark:bg-green-950">
-                    <span className="text-2xl">🚫</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg mb-2">Your Data is Private</h3>
-                    <p className="text-sm text-muted-foreground">
-                      We never share, sell, or monetize your financial data. Your information is used solely to provide you with insights.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Encrypted Storage */}
-              <div className="p-6 rounded-xl border bg-card">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-lg bg-indigo-100 dark:bg-indigo-950">
-                    <span className="text-2xl">🔒</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg mb-2">Encrypted Storage</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Your data is stored securely with Supabase, using industry-standard encryption in transit (TLS) and at rest.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* User-Only Access */}
-              <div className="p-6 rounded-xl border bg-card">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-lg bg-purple-100 dark:bg-purple-950">
-                    <span className="text-2xl">👤</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg mb-2">Your Eyes Only</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Row-level security ensures only you can access your transactions and financial data. No one else can view your information.
-                    </p>
-                  </div>
-                </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+              <Button
+                onClick={() => signIn('google')}
+                size="lg"
+                className="h-14 px-8 text-lg rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-indigo-500/25 transition-all duration-300 transform hover:-translate-y-0.5"
+              >
+                <LogIn className="mr-2 h-5 w-5" />
+                Start 7-Day Free Trial
+              </Button>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                No credit card required
               </div>
             </div>
           </div>
 
-          {/* Trust Badges - Only Truthful Ones */}
-          <div className="text-center space-y-4">
-            <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground flex-wrap">
-              <div className="flex items-center gap-2">
-                <span>✓</span>
-                <span>OAuth 2.0 Authentication</span>
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="group p-6 rounded-2xl bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 transition-all duration-300 hover:shadow-lg backdrop-blur-sm">
+              <div className="mb-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                <Brain className="h-10 w-10" />
               </div>
-              <div className="flex items-center gap-2">
-                <span>✓</span>
-                <span>TLS/SSL Encryption</span>
+              <h3 className="text-xl font-bold mb-2">AI-Powered Insights</h3>
+              <p className="text-muted-foreground">Automatically categorizes your transactions and identifies spending patterns you might miss.</p>
+            </div>
+            <div className="group p-6 rounded-2xl bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-purple-500/50 transition-all duration-300 hover:shadow-lg backdrop-blur-sm">
+              <div className="mb-4 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                <ShieldCheck className="h-10 w-10" />
               </div>
-              <div className="flex items-center gap-2">
-                <span>✓</span>
-                <span>Row-Level Security</span>
+              <h3 className="text-xl font-bold mb-2">Bank-Grade Security</h3>
+              <p className="text-muted-foreground">Your data is encrypted at rest and in transit. We never sell your personal financial information.</p>
+            </div>
+            <div className="group p-6 rounded-2xl bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-pink-500/50 transition-all duration-300 hover:shadow-lg backdrop-blur-sm">
+              <div className="mb-4 text-pink-600 dark:text-pink-400 group-hover:scale-110 transition-transform">
+                <TrendingUp className="h-10 w-10" />
               </div>
-              <div className="flex items-center gap-2">
-                <span>✓</span>
-                <span>No Third-Party Data Sharing</span>
-              </div>
+              <h3 className="text-xl font-bold mb-2">Smart Forecasting</h3>
+              <p className="text-muted-foreground">Predict future expenses and visualize your wealth growth with intuitive charts and graphs.</p>
+            </div>
+          </div>
+
+          {/* Social Proof / Trust */}
+          <div className="border-t border-slate-200 dark:border-slate-800 pt-12">
+            <p className="text-center text-sm font-medium text-muted-foreground mb-6 uppercase tracking-wider">Trusted by smart money managers</p>
+            <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
+              <div className="flex items-center gap-2 font-semibold text-lg"><CheckCircle className="h-5 w-5 text-blue-500" /> Google Auth</div>
+              <div className="flex items-center gap-2 font-semibold text-lg"><Lock className="h-5 w-5 text-green-500" /> SSL Secure</div>
+              <div className="flex items-center gap-2 font-semibold text-lg"><Database className="h-5 w-5 text-purple-500" /> Supabase</div>
+              <div className="flex items-center gap-2 font-semibold text-lg"><Shield className="h-5 w-5 text-indigo-500" /> RLS Protected</div>
             </div>
           </div>
         </div>
@@ -276,7 +240,7 @@ export default function Home() {
   if (checkingPayment) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center p-24">
-        <div className="text-xl">Checking subscription status...</div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </main>
     );
   }
@@ -298,9 +262,16 @@ export default function Home() {
                 🎉 7-Day Free Trial • No Credit Card Required
               </p>
             </div>
-            <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-              ClerQ
-            </h1>
+            <div className="flex justify-center mb-8">
+              <Image
+                src="/clerq.png"
+                alt="ClerQ Logo"
+                width={800}
+                height={260}
+                className="h-32 w-auto md:h-48 lg:h-56 drop-shadow-xl"
+                quality={100}
+              />
+            </div>
             <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
               {trialExpired
                 ? "Your 7-day free trial has ended. Continue using ClerQ for just ₹149/month!"
@@ -462,9 +433,17 @@ export default function Home() {
     <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center p-4 sm:p-8 md:p-24 bg-gradient-to-b from-background to-muted/20">
       <div className="z-10 max-w-5xl w-full items-center justify-center font-mono text-sm flex flex-col gap-6 sm:gap-8">
         <div className="text-center space-y-2 sm:space-y-4">
-          <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
-            ClerQ
-          </h1>
+          <div className="flex justify-center mb-8">
+            <Image
+              src="/clerq.png"
+              alt="ClerQ Brand Logo"
+              width={800}
+              height={260}
+              className="h-40 w-auto md:h-64 lg:h-80"
+              priority
+              quality={100}
+            />
+          </div>
           <p className="mx-auto max-w-[700px] text-muted-foreground text-sm sm:text-base md:text-xl px-4">
             Upload your bank statement (PDF or CSV) to get instant financial clarity.
           </p>

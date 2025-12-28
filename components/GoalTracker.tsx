@@ -93,6 +93,92 @@ export function GoalTracker({ transactions }: GoalTrackerProps) {
         }
     };
 
+    // ... (keep existing state and handlers)
+
+    const GoalCard = ({ progress }: { progress: any }) => (
+        <div
+            className="space-y-3 rounded-lg border p-4 transition-colors hover:bg-muted/50 w-full sm:min-w-[300px] sm:max-w-[350px] snap-center flex-shrink-0 bg-card"
+        >
+            {/* Goal Header */}
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <span className="text-2xl flex-shrink-0">{progress.goal.icon || '🎯'}</span>
+                    <div className="min-w-0 flex-1">
+                        <h4 className="font-semibold text-base truncate">{progress.goal.name}</h4>
+                        <p className="text-sm text-muted-foreground truncate">
+                            {progress.goal.type === 'savings' && 'Savings Pattern'}
+                            {progress.goal.type === 'spending-limit' && 'Spending Pattern'}
+                            {progress.goal.type === 'debt-payoff' && 'Debt Payoff'}
+                            {progress.goal.type === 'custom' && 'Custom Intention'}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleEditGoal(progress.goal)}
+                    >
+                        <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => handleDeleteGoal(progress.goal.id)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+
+            {/* Amount Display */}
+            <div className="flex items-baseline justify-between gap-2">
+                <div className="flex items-baseline gap-2 min-w-0 flex-1">
+                    <span className="text-lg font-bold truncate">
+                        ₹{Math.round(progress.goal.currentAmount).toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-sm text-muted-foreground truncate">
+                        / ₹{progress.goal.targetAmount.toLocaleString('en-IN')}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-sm font-semibold">
+                        {Math.round(progress.progressPercentage)}%
+                    </span>
+                    {progress.progressPercentage >= 100 && (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    )}
+                </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-1">
+                <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+                    <div
+                        className={`h-full transition-all ${getProgressColor(progress.progressPercentage)}`}
+                        style={{ width: `${Math.min(progress.progressPercentage, 100)}%` }}
+                    />
+                </div>
+            </div>
+
+            {/* Status Message */}
+            <p className="text-xs text-muted-foreground h-4 truncate">{progress.statusMessage}</p>
+
+            {/* Recommendations */}
+            {progress.recommendations && progress.recommendations.length > 0 && (
+                <div className="space-y-1 border-t pt-2 mt-2">
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                        💡 {progress.recommendations[0]}
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+
+
+
     if (!session) {
         return null;
     }
@@ -100,7 +186,7 @@ export function GoalTracker({ transactions }: GoalTrackerProps) {
     return (
         <>
             <Card className="w-full overflow-hidden min-w-0 border-none shadow-none sm:border sm:shadow-sm">
-                <CardHeader className="px-4 sm:px-6 flex flex-row items-center justify-between space-y-0 pb-2 sm:pb-6">
+                <CardHeader className="px-0 sm:px-6 flex flex-row items-center justify-between space-y-0 pb-2 sm:pb-6">
                     <CardTitle className="flex items-center gap-2 min-w-0">
                         <Target className="h-4 w-4 sm:h-5 sm:w-5 text-teal-500 flex-shrink-0" />
                         <span className="truncate text-base sm:text-lg">Financial Intentions</span>
@@ -109,6 +195,9 @@ export function GoalTracker({ transactions }: GoalTrackerProps) {
                         <Button size="sm" onClick={handleAddGoal} className="flex-shrink-0 hidden sm:flex">
                             <Plus className="h-4 w-4 mr-1" />
                             Add Intention
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={handleAddGoal} className="flex-shrink-0 sm:hidden h-8 w-8 p-0">
+                            <Plus className="h-4 w-4" />
                         </Button>
                     </div>
                 </CardHeader>
@@ -137,7 +226,7 @@ export function GoalTracker({ transactions }: GoalTrackerProps) {
                                 />
                             </div>
 
-                            {/* Desktop View: Carousel / Grid */}
+                            {/* Desktop View: Carousel */}
                             <div className="hidden sm:block relative">
                                 <Button
                                     variant="outline"
@@ -162,86 +251,7 @@ export function GoalTracker({ transactions }: GoalTrackerProps) {
                                     className="flex gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide px-1"
                                 >
                                     {goalsWithProgress.map((progress) => (
-                                        <div
-                                            key={progress.goal.id}
-                                            className="space-y-3 rounded-lg border p-4 transition-colors hover:bg-muted/50 min-w-[300px] max-w-[350px] snap-center flex-shrink-0 bg-card"
-                                        >
-                                            {/* Goal Header */}
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                    <span className="text-2xl flex-shrink-0">{progress.goal.icon || '🎯'}</span>
-                                                    <div className="min-w-0 flex-1">
-                                                        <h4 className="font-semibold text-base truncate">{progress.goal.name}</h4>
-                                                        <p className="text-sm text-muted-foreground truncate">
-                                                            {progress.goal.type === 'savings' && 'Savings Pattern'}
-                                                            {progress.goal.type === 'spending-limit' && 'Spending Pattern'}
-                                                            {progress.goal.type === 'debt-payoff' && 'Debt Payoff'}
-                                                            {progress.goal.type === 'custom' && 'Custom Intention'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-1 flex-shrink-0">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8"
-                                                        onClick={() => handleEditGoal(progress.goal)}
-                                                    >
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-destructive"
-                                                        onClick={() => handleDeleteGoal(progress.goal.id)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-
-                                            {/* Amount Display */}
-                                            <div className="flex items-baseline justify-between gap-2">
-                                                <div className="flex items-baseline gap-2 min-w-0 flex-1">
-                                                    <span className="text-lg font-bold truncate">
-                                                        ₹{Math.round(progress.goal.currentAmount).toLocaleString('en-IN')}
-                                                    </span>
-                                                    <span className="text-sm text-muted-foreground truncate">
-                                                        / ₹{progress.goal.targetAmount.toLocaleString('en-IN')}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <span className="text-sm font-semibold">
-                                                        {Math.round(progress.progressPercentage)}%
-                                                    </span>
-                                                    {progress.progressPercentage >= 100 && (
-                                                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Progress Bar */}
-                                            <div className="space-y-1">
-                                                <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
-                                                    <div
-                                                        className={`h-full transition-all ${getProgressColor(progress.progressPercentage)}`}
-                                                        style={{ width: `${Math.min(progress.progressPercentage, 100)}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Status Message */}
-                                            <p className="text-xs text-muted-foreground h-4 truncate">{progress.statusMessage}</p>
-
-                                            {/* Recommendations */}
-                                            {progress.recommendations && progress.recommendations.length > 0 && (
-                                                <div className="space-y-1 border-t pt-2 mt-2">
-                                                    <p className="text-xs text-muted-foreground line-clamp-2">
-                                                        💡 {progress.recommendations[0]}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
+                                        <GoalCard key={progress.goal.id} progress={progress} />
                                     ))}
                                     {/* Add New Card for Desktop Carousel */}
                                     <button

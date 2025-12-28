@@ -12,7 +12,15 @@ interface UseTransactionsOptions {
  * Fetches from Supabase
  */
 export function useTransactions({ userEmail, selectedBank }: UseTransactionsOptions) {
-    const { transactions: allTransactions, availableBanks, loading, refresh, deleteBank } = useTransactionsContext();
+    const {
+        transactions: allTransactions,
+        availableBanks,
+        loading,
+        refresh,
+        deleteBank,
+        uniqueCategories,
+        availableTags
+    } = useTransactionsContext();
 
     // Filter transactions based on selected bank
     const transactions = useMemo(() => {
@@ -41,6 +49,8 @@ export function useTransactions({ userEmail, selectedBank }: UseTransactionsOpti
     return {
         transactions,
         availableBanks,
+        uniqueCategories,
+        availableTags,
         loading,
         deleteBank,
         refresh,

@@ -3,13 +3,13 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Calendar } from 'lucide-react';
-import { useMonthRangeFilter } from '@/hooks/useMonthRangeFilter';
+import { useSearchParams } from 'next/navigation';
 import { useChartData } from '@/hooks/useChartData';
 import { SpendingByCategory } from '@/components/charts/SpendingByCategory';
 import { TopCategoriesPie } from '@/components/charts/TopCategoriesPie';
 import { MonthlyExpenses } from '@/components/charts/MonthlyExpenses';
-import { MonthRangeFilter } from '@/components/charts/MonthRangeFilter';
 import { getCurrentFinancialYear } from '@/lib/financialYear';
+import { parseDate } from '@/lib/dateParser';
 
 interface DashboardChartsProps {
     transactions: any[];
@@ -30,10 +30,29 @@ export function DashboardCharts({
     dateKey,
     showOnly
 }: DashboardChartsProps) {
-    // Month range filter state via custom hook
-    const { monthRange, setFromMonth, setToMonth, clearRange, isDateInRange } = useMonthRangeFilter();
+    const searchParams = useSearchParams();
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
 
-    // Process chart data with optional date filter
+    // Date range filter logic using URL params
+    const isDateInRange = (date: Date) => {
+        if (!fromParam && !toParam) return true;
+
+        if (fromParam) {
+            const fromDate = new Date(fromParam + '-01');
+            if (date < fromDate) return false;
+        }
+        if (toParam) {
+            const toDate = new Date(toParam + '-01');
+            toDate.setMonth(toDate.getMonth() + 1);
+            toDate.setDate(0);
+            toDate.setHours(23, 59, 59);
+            if (date > toDate) return false;
+        }
+        return true;
+    };
+
+    // Process chart data with URL-based date filter
     const { categoryData, monthlyData } = useChartData(
         transactions,
         { amountKey, depositKey, withdrawalKey, categoryKey, dateKey },
@@ -60,12 +79,6 @@ export function DashboardCharts({
                                 {getCurrentFinancialYear().label}
                             </span>
                         </CardTitle>
-                        <MonthRangeFilter
-                            monthRange={monthRange}
-                            onFromChange={setFromMonth}
-                            onToChange={setToMonth}
-                            onClear={clearRange}
-                        />
                     </div>
                 </CardHeader>
                 <CardContent className="px-0 sm:px-2 md:px-6 w-full flex-1">
@@ -98,12 +111,6 @@ export function DashboardCharts({
                                 {getCurrentFinancialYear().label}
                             </span>
                         </CardTitle>
-                        <MonthRangeFilter
-                            monthRange={monthRange}
-                            onFromChange={setFromMonth}
-                            onToChange={setToMonth}
-                            onClear={clearRange}
-                        />
                     </div>
                 </CardHeader>
                 <CardContent className="px-0 sm:px-2 md:px-6 w-full flex-1">

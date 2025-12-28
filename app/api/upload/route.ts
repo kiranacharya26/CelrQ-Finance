@@ -249,6 +249,19 @@ export async function POST(request: Request) {
             }, { status: 429 });
         }
 
+        // Security: Check Premium Status
+        const { checkPremiumStatus } = await import('@/lib/premium');
+        const { isPremium } = await checkPremiumStatus(session.user.email);
+
+        // If not premium, we might want to restrict AI or block entirely depending on the model.
+        // For now, let's allow the upload but we will use this flag later to skip AI if needed,
+        // OR if the requirement is strict "no AI for free", we enforce it before AI call.
+        // However, the user said "getting free AI analysis".
+        // Let's strictly block the AI part later in the code using this `isPremium` flag.
+        // But to be robust, if the entire "Upload & Analyze" feature is premium, we should block here.
+        // Let's assume basic upload is allowed (manual) but AI is premium.
+        // We'll keep `isPremium` for later use in the AI block.
+
         const formData = await request.formData();
         const file = formData.get('file') as File;
         const userEmail = session.user.email; // Use session email for security
@@ -306,44 +319,33 @@ export async function POST(request: Request) {
         */
         // -----------------------------------------------------------------------
 
-        // 0. Ensure Trial Started Record Exists
-        // We use a special payment record to track trial start permanently
+        // 0. Ensure Trial Started Record Exists (Server-Side Tracking)
         try {
-            const adminSupabase = createClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.SUPABASE_SERVICE_ROLE_KEY!
-            );
-
+            // We use a deterministic ID `trial_${userEmail}` to ensure a user gets exactly ONE trial per email.
+            // This record is permanent and cannot be reset by clearing cookies or local storage.
             const trialOrderId = `trial_${userEmail}`;
 
-            // Check if trial record exists
-            const { data: existingTrial } = await adminSupabase
+            // Check if trial record exists using the admin client for bypass-proof check
+            const { data: existingTrial } = await supabaseAdmin
                 .from('payments')
                 .select('id')
                 .eq('order_id', trialOrderId)
                 .single();
 
             if (!existingTrial) {
-                // Fetch user ID for the email
-                // Note: In a real app, we should pass userId from frontend, but here we can try to find it or use a placeholder
-                // Since we don't have easy access to auth.users from here without admin API which might be restricted
-                // We'll try to use the user_id from the session if passed, or fallback to email as ID if allowed by schema (schema says user_id is TEXT)
-                // Let's try to get user by email if possible, or just use email as user_id for this special record
-
-                // Actually, let's just use the email as user_id for the trial record if we can't get the real ID.
-                // But wait, the payments table has user_id as TEXT.
-
-                await adminSupabase.from('payments').insert({
+                // Create the immutable trial record
+                // We let the database set 'created_at' to ensure time integrity
+                await supabaseAdmin.from('payments').insert({
                     order_id: trialOrderId,
-                    user_id: userEmail, // Fallback, ideally should be UUID but schema is TEXT
+                    user_id: userEmail, // Mapping email to user_id for this system record
                     email: userEmail,
                     amount: 0,
                     currency: 'INR',
                     status: 'TRIAL_STARTED',
                     payment_method: 'system',
-                    metadata: { type: 'trial_start', created_via: 'upload_api' }
+                    metadata: { type: 'trial_start', source: 'upload_api', version: 'v2_secure' }
                 });
-                console.log(`🆕 Trial started record created for ${userEmail}`);
+                console.log(`🆕 Secure trial record created for ${userEmail}`);
             }
         } catch (e) {
             console.warn('Failed to create trial record:', e);
@@ -489,6 +491,23 @@ export async function POST(request: Request) {
         await storeTransactions(transactionsWithOverrides, userEmail, bankName, file.name, fileHash, uploadId);
 
         // 5. Process AI categorization with timeout protection
+        if (!isPremium) {
+            console.log('🔒 User is not premium. Skipping AI categorization.');
+            await supabaseAdmin.from('uploads').update({
+                status: 'completed',
+                processed_count: transactionsWithOverrides.length
+            }).eq('id', uploadId);
+
+            return NextResponse.json({
+                transactions: transactionsWithOverrides.map(t =>
+                    sanitizeTransaction(t, userEmail, bankName, uploadId)
+                ),
+                message: 'Upload successful! (AI Categorization is a Premium feature)',
+                uploadId,
+                status: 'completed'
+            });
+        }
+
         console.log('🤖 Starting AI categorization with timeout protection...');
         console.log(`📊 Processing ${transactionsWithOverrides.length} transactions for AI categorization`);
 

@@ -158,29 +158,12 @@ function InsightsContent() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="space-y-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Financial Clarity</h1>
                     <p className="text-muted-foreground">
                         Understand your spending patterns, notice drifts, and discover insights.
                     </p>
                 </div>
 
-                {/* Month Selector */}
-                {months.length > 0 && (
-                    <div className="flex items-center gap-2">
-                        <select
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                            <option value="All Months">All Months</option>
-                            {months.map((month) => (
-                                <option key={month} value={month}>
-                                    {month}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                )}
+
             </div>
 
 

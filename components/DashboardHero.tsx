@@ -100,43 +100,43 @@ export function DashboardHero({ transactions, totalIncome, totalExpenses, netSav
     }, [transactions, totalIncome, totalExpenses]);
 
     return (
-        <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-4 px-4 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 sm:pb-0 sm:mx-0 sm:px-0 scrollbar-hide">
+        <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-2 -mx-4 px-4 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 sm:pb-0 sm:mx-0 sm:px-0 scrollbar-hide">
             {/* Savings Pattern */}
-            <Card className="min-w-[85vw] sm:min-w-0 snap-center w-full overflow-hidden shadow-sm border-0 sm:border bg-gradient-to-br from-emerald-50/50 to-transparent dark:from-emerald-950/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
-                        <TrendingUp className="h-4 w-4" />
+            <Card className="min-w-[80vw] sm:min-w-0 snap-center w-full overflow-hidden shadow-sm border-0 sm:border bg-gradient-to-br from-emerald-50/50 to-transparent dark:from-emerald-950/20">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 px-3 sm:px-6 pt-3 sm:pt-6">
+                    <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 text-emerald-700 dark:text-emerald-400">
+                        <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <span>Savings Pattern</span>
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                    <div className={`text-3xl sm:text-2xl font-bold truncate ${netSavings >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600'}`}>
+                <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                    <div className={`text-2xl sm:text-2xl font-bold truncate ${netSavings >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600'}`}>
                         ₹{netSavings.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
                         {stats ? `${stats.savingsRate.toFixed(1)}% retention rate` : 'of inflow'}
                     </p>
                 </CardContent>
             </Card>
 
             {/* Money Inflow */}
-            <Card className="min-w-[85vw] sm:min-w-0 snap-center w-full overflow-hidden shadow-sm border-0 sm:border bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-green-700 dark:text-green-400">
-                        <DollarSign className="h-4 w-4" />
+            <Card className="min-w-[80vw] sm:min-w-0 snap-center w-full overflow-hidden shadow-sm border-0 sm:border bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 px-3 sm:px-6 pt-3 sm:pt-6">
+                    <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 text-green-700 dark:text-green-400">
+                        <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <span>Money Inflow</span>
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                    <div className="text-3xl sm:text-2xl font-bold text-green-600 dark:text-green-400 truncate">
+                <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                    <div className="text-2xl sm:text-2xl font-bold text-green-600 dark:text-green-400 truncate">
                         ₹{totalIncome.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                     </div>
                     {stats && (
-                        <div className="flex items-center text-sm text-muted-foreground mt-1">
+                        <div className="flex items-center text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
                             {stats.incomeChange > 0 ? (
-                                <ArrowUpIcon className="mr-1 h-4 w-4 text-green-500" />
+                                <ArrowUpIcon className="mr-1 h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
                             ) : (
-                                <ArrowDownIcon className="mr-1 h-4 w-4 text-red-500" />
+                                <ArrowDownIcon className="mr-1 h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
                             )}
                             <span>{Math.abs(stats.incomeChange).toFixed(1)}% shift vs last month</span>
                         </div>
@@ -145,43 +145,43 @@ export function DashboardHero({ transactions, totalIncome, totalExpenses, netSav
             </Card>
 
             {/* Spending Drift */}
-            <Card className="min-w-[85vw] sm:min-w-0 snap-center w-full overflow-hidden shadow-sm border-0 sm:border bg-gradient-to-br from-red-50/50 to-transparent dark:from-red-950/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-red-700 dark:text-red-400">
-                        <CreditCard className="h-4 w-4" />
+            <Card className="min-w-[80vw] sm:min-w-0 snap-center w-full overflow-hidden shadow-sm border-0 sm:border bg-gradient-to-br from-red-50/50 to-transparent dark:from-red-950/20">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 px-3 sm:px-6 pt-3 sm:pt-6">
+                    <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 text-red-700 dark:text-red-400">
+                        <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <span>Spending Drift</span>
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                    <div className="text-3xl sm:text-2xl font-bold text-red-600 dark:text-red-400 truncate">
+                <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                    <div className="text-2xl sm:text-2xl font-bold text-red-600 dark:text-red-400 truncate">
                         ₹{totalExpenses.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
                         {stats ? `₹${stats.avgDailySpend.toFixed(0)} daily velocity` : 'total spent'}
                     </p>
                 </CardContent>
             </Card>
 
             {/* Major Pattern */}
-            <Card className="min-w-[85vw] sm:min-w-0 snap-center w-full overflow-hidden shadow-sm border-0 sm:border bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-950/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-700 dark:text-blue-400">
-                        <Activity className="h-4 w-4" />
+            <Card className="min-w-[80vw] sm:min-w-0 snap-center w-full overflow-hidden shadow-sm border-0 sm:border bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-950/20">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 px-3 sm:px-6 pt-3 sm:pt-6">
+                    <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 text-blue-700 dark:text-blue-400">
+                        <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <span>Major Pattern</span>
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+                <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                     {stats?.topCategory ? (
                         <>
-                            <div className="text-3xl sm:text-2xl font-bold truncate text-blue-900 dark:text-blue-100">
+                            <div className="text-2xl sm:text-2xl font-bold truncate text-blue-900 dark:text-blue-100">
                                 {stats.topCategory.name}
                             </div>
-                            <p className="text-sm text-muted-foreground mt-1">
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
                                 ₹{stats.topCategory.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })} noticed
                             </p>
                         </>
                     ) : (
-                        <div className="text-sm text-muted-foreground">No data available</div>
+                        <div className="text-xs sm:text-sm text-muted-foreground">No data available</div>
                     )}
                 </CardContent>
             </Card>

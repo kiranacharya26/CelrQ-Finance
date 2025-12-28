@@ -131,7 +131,7 @@
     /* Improve touch targets - minimum 44x44px */
     button,
     a,
-    input,
+    input:not([type="checkbox"]),
     select {
       min-height: 44px;
     }

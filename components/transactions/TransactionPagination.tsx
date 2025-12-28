@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -25,6 +26,23 @@ export function TransactionPagination({
     onNext,
     onPageChange
 }: TransactionPaginationProps) {
+    const [inputValue, setInputValue] = useState(currentPage.toString());
+
+    // Sync input value when currentPage prop changes
+    useEffect(() => {
+        setInputValue(currentPage.toString());
+    }, [currentPage]);
+
+    const handlePageSubmit = () => {
+        const page = parseInt(inputValue);
+        if (!isNaN(page) && page >= 1 && page <= totalPages) {
+            onPageChange(page);
+        } else {
+            // Reset to current page if invalid
+            setInputValue(currentPage.toString());
+        }
+    };
+
     if (totalPages <= 1) return null;
 
     return (
@@ -49,22 +67,15 @@ export function TransactionPagination({
                         type="number"
                         min={1}
                         max={totalPages}
-                        value={currentPage}
-                        onChange={(e) => {
-                            const page = parseInt(e.target.value);
-                            if (page >= 1 && page <= totalPages) {
-                                onPageChange(page);
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                handlePageSubmit();
                             }
                         }}
-                        onBlur={(e) => {
-                            const page = parseInt(e.target.value);
-                            if (isNaN(page) || page < 1) {
-                                onPageChange(1);
-                            } else if (page > totalPages) {
-                                onPageChange(totalPages);
-                            }
-                        }}
-                        className="w-16 h-9 text-center"
+                        onBlur={handlePageSubmit}
+                        className="w-16 h-9 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <span className="text-sm text-muted-foreground">of {totalPages}</span>
                 </div>

@@ -11,8 +11,9 @@ export async function checkRateLimit(email: string, feature: string, limit: numb
         .gte('created_at', windowStart);
 
     if (error) {
-        console.error('Rate limit check error:', error);
-        return { allowed: true }; // Allow on error to not block users
+        console.error('🚨 Rate limit check failed (Security Fail-Safe Triggered):', error);
+        // Fail Closed: If we can't verify the rate limit, we assume the worst to protect the system.
+        return { allowed: false, error: 'System busy, please try again.' };
     }
 
     return {

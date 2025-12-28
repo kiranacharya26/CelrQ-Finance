@@ -22,7 +22,7 @@ export interface UseTransactionTableReturn {
     customCategories: string[];
     allCategories: string[];
     selectedIds: Set<string>;
-    toggleSelectAll: () => void;
+    toggleSelectAll: (force?: boolean) => void;
     toggleSelectRow: (id: string) => void;
     handleCategoryChange: (globalIndex: number, newCategory: string, updateSimilar?: boolean) => Promise<{ updated: number } | undefined>;
     findSimilarTransactions: (transaction: Transaction) => Transaction[];
@@ -105,8 +105,8 @@ export function useTransactionTable({
     const endIndex = startIndex + itemsPerPage;
     const currentTransactions = localTransactions.slice(startIndex, endIndex);
 
-    const toggleSelectAll = () => {
-        if (selectedIds.size === currentTransactions.length) {
+    const toggleSelectAll = (force?: boolean) => {
+        if (force === false || (force === undefined && selectedIds.size === currentTransactions.length)) {
             setSelectedIds(new Set());
         } else {
             setSelectedIds(new Set(currentTransactions.map(t => t.id)));
