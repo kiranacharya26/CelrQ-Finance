@@ -5,10 +5,10 @@ import { FileUpload } from '@/components/FileUpload';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-import { useSession, signIn } from 'next-auth/react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { UserStorage } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
-import { LogIn, Brain, ShieldCheck, TrendingUp, Lock, Zap, Database, Shield, CheckCircle } from 'lucide-react';
+import { LogIn, Brain, ShieldCheck, TrendingUp, Lock, Zap, Database, Shield, CheckCircle, PartyPopper, Clock } from 'lucide-react';
 import CashfreePaymentButton from '@/components/CashfreePaymentButton';
 import Image from 'next/image';
 
@@ -57,6 +57,7 @@ export default function Home() {
                 if (verifyData.success) {
                   console.log("Payment verified! Redirecting to dashboard...");
                   // Payment verified, redirect immediately
+                  // Keep checkingPayment true to prevent flash
                   router.push('/dashboard');
                   return;
                 }
@@ -84,11 +85,14 @@ export default function Home() {
           // If user has paid, redirect to dashboard
           // BUT skip redirect if user explicitly wants to upgrade/pay
           if (data.hasPaid && !isUpgrade) {
+            // Keep checkingPayment true to prevent flash of upload page
             router.push('/dashboard');
+            return;
           }
         } catch (error) {
           console.error("Failed to check payment status", error);
         } finally {
+          // Only set checkingPayment to false if we're not redirecting
           setCheckingPayment(false);
         }
       }
@@ -237,7 +241,7 @@ export default function Home() {
     );
   }
 
-  if (checkingPayment) {
+  if (checkingPayment || (session && hasPaid === null) || hasPaid === true) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center p-24">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -257,24 +261,30 @@ export default function Home() {
         <div className="z-10 max-w-6xl w-full flex flex-col gap-12">
           {/* Hero Section */}
           <div className="text-center space-y-6">
-            <div className="inline-block px-4 py-2 bg-indigo-100 dark:bg-indigo-950 rounded-full mb-4">
-              <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                🎉 7-Day Free Trial • No Credit Card Required
-              </p>
-            </div>
-            <div className="flex justify-center mb-8">
-              <Image
-                src="/clerq.png"
-                alt="ClerQ Logo"
-                width={800}
-                height={260}
-                className="h-32 w-auto md:h-48 lg:h-56 drop-shadow-xl"
-                quality={100}
-              />
+            {!trialExpired && (
+              <div className="inline-block px-4 py-2 bg-indigo-100 dark:bg-indigo-950 rounded-full mb-4">
+                <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                  <PartyPopper className="h-4 w-4" />
+                  7-Day Free Trial • No Credit Card Required
+                </p>
+              </div>
+            )}
+            {trialExpired && (
+              <div className="inline-block px-4 py-2 bg-amber-100 dark:bg-amber-950 rounded-full mb-4">
+                <p className="text-sm font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Trial Ended • Continue with Premium
+                </p>
+              </div>
+            )}
+            <div className="flex justify-center mb-6">
+              <h1 className="text-6xl md:text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 mb-4 tracking-tight drop-shadow-sm">
+                ClerQ
+              </h1>
             </div>
             <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
               {trialExpired
-                ? "Your 7-day free trial has ended. Continue using ClerQ for just ₹149/month!"
+                ? `Your 7-day free trial has ended. Continue using ClerQ for just ${billingCycle === 'monthly' ? '₹149/month' : '₹1,499/year'}!`
                 : (paymentRequired
                   ? "Payment required to access your dashboard and data."
                   : "AI-powered finance tracking that learns from your spending habits.")
@@ -283,8 +293,9 @@ export default function Home() {
             {trialExpired && (
               <div className="mx-auto max-w-[700px] p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <p className="text-sm text-amber-800 dark:text-amber-200">
-                  ⏰ <strong>Trial Ended</strong> - You experienced the power of AI-driven finance tracking.
-                  Continue for just ₹149/month to keep your data and insights!
+                  <Clock className="inline h-4 w-4 mr-1" />
+                  <strong>Trial Ended</strong> - You experienced the power of AI-driven finance tracking.
+                  Continue for just <strong>{billingCycle === 'monthly' ? '₹149/month' : '₹1,499/year'}</strong> to keep your data and insights!
                 </p>
               </div>
             )}
@@ -335,9 +346,16 @@ export default function Home() {
             </div>
 
             <div className="relative border-2 border-indigo-500 rounded-2xl p-8 bg-card shadow-2xl transition-all duration-300">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-indigo-600 text-white text-sm font-bold rounded-full">
-                {billingCycle === 'monthly' ? '7 DAYS FREE' : 'BEST VALUE'}
-              </div>
+              {!trialExpired && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-indigo-600 text-white text-sm font-bold rounded-full">
+                  {billingCycle === 'monthly' ? '7 DAYS FREE' : 'BEST VALUE'}
+                </div>
+              )}
+              {trialExpired && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-amber-600 text-white text-sm font-bold rounded-full">
+                  {billingCycle === 'monthly' ? 'POPULAR' : 'BEST VALUE'}
+                </div>
+              )}
 
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold mb-2">
@@ -357,7 +375,10 @@ export default function Home() {
                   </p>
                 )}
                 <p className="text-sm text-muted-foreground mt-2">
-                  Start with 7 days free • Cancel anytime
+                  {trialExpired
+                    ? 'Continue your journey • Cancel anytime'
+                    : 'Start with 7 days free • Cancel anytime'
+                  }
                 </p>
               </div>
 
@@ -409,19 +430,35 @@ export default function Home() {
 
           {/* Trust Badges */}
           <div className="text-center space-y-4">
-            <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                <span>🔒</span>
+                <Lock className="h-4 w-4 text-green-500" />
                 <span>Bank-level Security</span>
               </div>
               <div className="flex items-center gap-2">
-                <span>⚡</span>
+                <Zap className="h-4 w-4 text-yellow-500" />
                 <span>Instant Setup</span>
               </div>
               <div className="flex items-center gap-2">
-                <span>🚫</span>
+                <ShieldCheck className="h-4 w-4 text-blue-500" />
+                <span>No Auto-Debit</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-purple-500" />
                 <span>Cancel Anytime</span>
               </div>
+            </div>
+
+            {/* Logout Button */}
+            <div className="pt-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => signOut({ callbackUrl: '/' })}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Sign out
+              </Button>
             </div>
           </div>
         </div>
@@ -433,16 +470,10 @@ export default function Home() {
     <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center p-4 sm:p-8 md:p-24 bg-gradient-to-b from-background to-muted/20">
       <div className="z-10 max-w-5xl w-full items-center justify-center font-mono text-sm flex flex-col gap-6 sm:gap-8">
         <div className="text-center space-y-2 sm:space-y-4">
-          <div className="flex justify-center mb-8">
-            <Image
-              src="/clerq.png"
-              alt="ClerQ Brand Logo"
-              width={800}
-              height={260}
-              className="h-40 w-auto md:h-64 lg:h-80"
-              priority
-              quality={100}
-            />
+          <div className="flex justify-center mb-6">
+            <h1 className="text-6xl md:text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 mb-4 tracking-tight drop-shadow-sm">
+              ClerQ
+            </h1>
           </div>
           <p className="mx-auto max-w-[700px] text-muted-foreground text-sm sm:text-base md:text-xl px-4">
             Upload your bank statement (PDF or CSV) to get instant financial clarity.

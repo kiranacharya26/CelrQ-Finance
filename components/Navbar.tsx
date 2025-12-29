@@ -24,10 +24,10 @@ import { NavbarActions } from './NavbarActions';
 import { useTransactionsContext } from '@/context/TransactionsContext';
 
 export function Navbar() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const [isPremium, setIsPremium] = useState(false);
+    const [isPremium, setIsPremium] = useState<boolean | null>(null);
     const [isTrial, setIsTrial] = useState(false);
     const [isExpiringSoon, setIsExpiringSoon] = useState(false);
 
@@ -59,6 +59,8 @@ export function Navbar() {
                     }
                 } catch (error) {
                     console.error('Failed to check premium status:', error);
+                    // On error, assume not premium to be safe
+                    setIsPremium(false);
                 }
             }
         };
@@ -98,7 +100,7 @@ export function Navbar() {
                 </div>
 
                 {/* Desktop Navigation */}
-                {session && isPremium && (
+                {session && isPremium !== false && (
                     <nav className="hidden md:flex items-center space-x-6 text-sm font-medium ml-6" aria-label="Primary navigation">
                         <Link
                             href={getLinkWithParams('/dashboard')}
@@ -134,7 +136,7 @@ export function Navbar() {
 
                 {/* Spacer / Desktop Filters */}
                 <div className="hidden md:flex flex-1 justify-center px-4 gap-2">
-                    {session && isPremium && (
+                    {session && isPremium !== false && (
                         <>
                             <NavbarFilters />
                             <NavbarActions />
@@ -144,7 +146,7 @@ export function Navbar() {
 
                 {/* Desktop User Menu */}
                 <div className="hidden md:flex items-center gap-4">
-                    {session && isPremium && <NavbarImport />}
+                    {session && isPremium !== false && <NavbarImport />}
                     {session ? (
                         <>
                             <ModeToggle />
@@ -169,7 +171,7 @@ export function Navbar() {
                                         <div className="flex flex-col space-y-1">
                                             <div className="flex items-center gap-2">
                                                 <p className="text-sm font-medium leading-none">{session.user?.name}</p>
-                                                {isPremium && (
+                                                {isPremium === true && (
                                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-white ${isTrial
                                                         ? 'bg-blue-500'
                                                         : (isExpiringSoon ? 'bg-red-500 animate-pulse' : 'bg-gradient-to-r from-amber-500 to-orange-500')
@@ -211,7 +213,7 @@ export function Navbar() {
                                         </p>
                                     </div>
                                     <DropdownMenuSeparator />
-                                    {isPremium && (
+                                    {isPremium === true && (
                                         <DropdownMenuItem asChild>
                                             <Link href="/settings" className="cursor-pointer">
                                                 Settings
@@ -266,7 +268,7 @@ export function Navbar() {
                                             <p className="text-xs text-muted-foreground truncate leading-none">
                                                 {session.user?.email}
                                             </p>
-                                            {(isPremium || isTrial) && (
+                                            {isPremium === true && (
                                                 <div className="mt-1.5">
                                                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold text-white ${isTrial
                                                         ? 'bg-blue-500'
@@ -338,7 +340,7 @@ export function Navbar() {
                     )}
                 </div>
             </div>
-            {session && isPremium && <MobileFilterBar />}
+            {session && isPremium !== false && <MobileFilterBar />}
         </nav>
     );
 }
